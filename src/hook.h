@@ -55,6 +55,8 @@ void AttachMobHpTagMod();
 void AttachToolTipMod();
 void AttachIconIconMod();
 void AttachTempStatMod();
+void AttachQuickSlotsMod(); // <-- add this line
+
 
 inline void AttachClientHooks() {
     AttachClientBypass();
@@ -68,6 +70,7 @@ inline void AttachClientHooks() {
     AttachToolTipMod();
     AttachIconIconMod();
     AttachTempStatMod();
+    AttachQuickSlotsMod(); // <-- add this line
 }
 
 
@@ -90,6 +93,9 @@ void* GetAddress(const char* sModuleName, const char* sProcName);
 void* GetAddressByPattern(const char* sModuleName, const char* sPattern);
 
 void PatchMemory(void* pAddress, void* pValue, size_t uSize);
+
+char* EncodeStringAlloc(const char* sSource); // <-- add this line
+
 
 void PatchAllByPattern(void* pStart, void* pEnd, const char* sPattern, void* pValue, size_t uSize);
 

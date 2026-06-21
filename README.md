@@ -21,3 +21,12 @@ Example for using `config.ini`:
 host=127.0.0.1
 port=8484
 ```
+
+
+## 新增
+1. 新增长键盘，数据库需要更新。thank  Lynx
+https://moguwuyu.com/d/364-quickslot-dynamic
+2. add stringpool 来自beidou
+3. 新增img加载wz，支持加载北斗的汉化img，其他都是用源端的 thank Conggg.
+
+

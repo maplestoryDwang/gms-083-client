@@ -670,6 +670,11 @@ void set_screen_resolution(int nResolution, bool bSave) {
             field->RestoreViewRange_hook();
             // CMapLoadable::ReloadBack
             reinterpret_cast<void(__thiscall*)(CMapLoadable*)>(0x00644491)(field);
+
+            // ÖØÐÂË¢ÐÂ¼üÅÌ
+             if (CUIStatusBar::IsInstantiated()) {
+                reinterpret_cast<void(__thiscall*)(void*)>(0x008D82A7)(CUIStatusBar::GetInstance());
+            }
         }
     }
     if (bSave) {
@@ -679,6 +684,8 @@ void set_screen_resolution(int nResolution, bool bSave) {
 
 
 void AttachResolutionMod() {
+
+
     ATTACH_HOOK(set_stage, set_stage_hook);
     ATTACH_HOOK(CConfig::GetUIWndPos, CConfig::GetUIWndPos_hook);
     ATTACH_HOOK(CConfig::LoadCharacter, CConfig::LoadCharacter_hook);
