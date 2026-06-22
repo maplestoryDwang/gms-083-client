@@ -8,8 +8,9 @@ void ApplyDynamicSlotPatches();
 // ==========================================
 // 动态调试配置中心 (可以在外面或运行时随时修改)
 // ==========================================
-int g_nCurrentSlotCount = 30;   // 当前使用的快捷键数量 
+int g_nCurrentSlotCount = 30;   // 当前使用的快捷键数量
 
+const int g_nExpandLen = 30 * 12;   // 拓展的长度
 
 const int g_nMaxSlotCount = 30; // 数组开辟的最大空间上限，用于防止内存越界
 const int g_nSSlotCount = 8; // 数组开辟的最大空间上限，用于防止内存越界
@@ -104,7 +105,7 @@ unsigned char Array_ptShortKeyPos[] = {
 unsigned char Array_aDefaultQKM_0[g_nMaxSlotCount * 4]; // 动态初始化，大小与最大支持格子匹配
 
 // 360字节的扩展数组 (30 * 12)
-unsigned char Array_Expanded[g_nMaxSlotCount * 12];
+unsigned char Array_Expanded[g_nExpandLen];
 
 // 120 = 30 x 4 不知道为什么多给4
 //unsigned char cooldown_Array[124]; // 动态分配和初始化
@@ -121,7 +122,7 @@ DWORD sub_9FA0CB_cave_retn_1 = 0x009FA0E1;
 
 __declspec(naked) void CompareValidateFuncKeyMappedInfo_cave() {
     _asm {
-        push 0x168
+        push 0x168   // 60h -> 168H    8键 - 》 30键
         push 0x0
         push eax
         pushad
