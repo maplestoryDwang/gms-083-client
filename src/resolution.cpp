@@ -673,7 +673,7 @@ void set_screen_resolution(int nResolution, bool bSave) {
 
             // ÖØÐÂË¢ÐÂ¼üÅÌ
              if (CUIStatusBar::IsInstantiated()) {
-                reinterpret_cast<void(__thiscall*)(void*)>(0x008D82A7)(CUIStatusBar::GetInstance());
+                reinterpret_cast<void(__thiscall*)(void*)>(0x008D82A7)(CUIStatusBar::GetInstance());  // CUIStatusBar::ReDrawQuickslot
             }
         }
     }

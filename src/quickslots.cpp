@@ -3,6 +3,7 @@
 
 int get_screen_width();
 
+// 15 X2 键  上1 下1 上2 下2排列
 unsigned char Array_aDefaultQKM[] = {
     42, 0, 0, 0,   //shift
     82, 0, 0, 0,   //ins
@@ -12,17 +13,14 @@ unsigned char Array_aDefaultQKM[] = {
     3, 0, 0, 0,    //2
     4, 0, 0, 0,    //3
     5, 0, 0, 0,
-    6, 0, 0, 0,    //6
+    6, 0, 0, 0,    //5
     30, 0, 0, 0,   // a
     31, 0, 0, 0,
     32, 0, 0, 0,
     33, 0, 0, 0,
     29, 0, 0, 0,
     83, 0, 0, 0,
-
-
-
-    79, 0, 0, 0,   // end
+    79, 0, 0, 0,  
     81, 0, 0, 0,
     16, 0, 0, 0,
     17, 0, 0, 0,
@@ -39,6 +37,7 @@ unsigned char Array_aDefaultQKM[] = {
     9, 0, 0, 0
 };
 
+// x ,y 都是 + 33
 unsigned char Array_ptShortKeyPos[] = {
     7, 0, 0, 0, 8, 0, 0, 0,
     7, 0, 0, 0, 41, 0, 0, 0,
@@ -72,41 +71,44 @@ unsigned char Array_ptShortKeyPos[] = {
     241, 1, 0, 0, 41, 0, 0, 0
 };
 
+// old键盘
 unsigned char Array_aDefaultQKM_0[] = {
-    42, 0, 0, 0,
-    82, 0, 0, 0,
-    71, 0, 0, 0,
-    73, 0, 0, 0,
+    42, 0, 0, 0, // shift
+    82, 0, 0, 0, // ins
+    71, 0, 0, 0, // hm
+    73, 0, 0, 0, // pup
+    2, 0, 0, 0,  // 1
+    3, 0, 0, 0,  // 2
+    4, 0, 0, 0,  // 3
+    5, 0, 0, 0,
+    6, 0, 0, 0,  // 5
+    30, 0, 0, 0, // a
+    31, 0, 0, 0,
+    32, 0, 0, 0,
+    33, 0, 0, 0,
     29, 0, 0, 0,
     83, 0, 0, 0,
     79, 0, 0, 0,
     81, 0, 0, 0,
-
-    42, 0, 0, 0,
-    82, 0, 0, 0,
-    71, 0, 0, 0,
-    73, 0, 0, 0,
-    29, 0, 0, 0,
-    83, 0, 0, 0,
-    79, 0, 0, 0,
-    81, 0, 0, 0,
-
-    84, 0, 0, 0,
-    85, 0, 0, 0,
-    86, 0, 0, 0,
-    87, 0, 0, 0,
-    88, 0, 0, 0,
-    89, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0,
-    29, 0, 0, 0
+    16, 0, 0, 0,
+    17, 0, 0, 0,
+    18, 0, 0, 0,
+    19, 0, 0, 0,
+    20, 0, 0, 0,
+    44, 0, 0, 0,
+    45, 0, 0, 0,
+    46, 0, 0, 0,
+    47, 0, 0, 0,
+    52, 0, 0, 0,
+    7, 0, 0, 0,
+    8, 0, 0, 0,
+    9, 0, 0, 0
 };
 
+
+
+// 360 / 30 = 12
+// 是否初始值有用？
 unsigned char Array_Expanded[360] = {
     4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -140,6 +142,7 @@ unsigned char Array_Expanded[360] = {
     5, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
+// 124 / 4 = 31 why?
 unsigned char cooldown_Array[124] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -263,6 +266,7 @@ static Layer_GetDim_t Layer_GetHeight = reinterpret_cast<Layer_GetDim_t>(0x00440
 
 typedef int(__stdcall* Canvas_Clear_t)(void* pCanvas, int x, int y, int w, int h, int color);
 
+// 图片指针
 static char* g_pQuickSlotS_encoded = nullptr;
 static char* g_pQuickSlotM_encoded = nullptr;
 static const char* g_pQuickSlot_stock = nullptr;
@@ -301,6 +305,7 @@ void __cdecl RefreshQuickSlotArt() {
         reinterpret_cast<int*>(pInstance[0])[SP_QUICKSLOT_INDEX] = 0;
     }
 
+    // sub_8E0634
     Patch1(0x008DE75E + 3, static_cast<unsigned char>(4 + nSlots * 4));
     Patch1(0x008E099F + 3, static_cast<unsigned char>(nSlots));
 }
@@ -332,61 +337,113 @@ __declspec(naked) void QuickSlotArt_cave() {
 		call ClearQuickSlotFrame
 		add  esp, 8
 		popad
-		push 0x9C8
+		push 0x9C8  //补回游戏原本在 0x008DDE74 左右被你擦除掉的原始指令
 		jmp  QuickSlotArt_Retn
     }
 }
 
 void AttachQuickSlotsMod() {
-    Patch1(0x008D155C + 1, 0xF0);
-    Patch1(0x008D155C + 2, 0x03);
+
+    // CUIStatusBar::OnCreate(_DWORD *a1@<ecx>, int ebp0@<ebp>, int a3) 重新绘制宽度
+    // Layer = IWzGr2D::CreateLayer(dword_BF14EC, (ebp0 - 16), 0, 0,  97h, 80, 0, (ebp0 - 80), (ebp0 - 40));
+    // 008D155C 68 97 00 00 00                    push    97h       // 97h -> 03F0h
+    Patch1(0x008D155C + 1, 0xF0);   
+    Patch1(0x008D155C + 2, 0x03);   
+
     Patch1(0x008D182E + 1, 0xF0);
     Patch1(0x008D182E + 2, 0x03);
+
     Patch1(0x008D1AC0 + 1, 0xF0);
     Patch1(0x008D1AC0 + 2, 0x03);
 
+
+
+    // hook dword_BDAFAC 2Ah, 52h, 47h, 49h, 1Dh, 53h, 4Fh, 51h
+    // 设置旧的键盘
+    // CQuickslotKeyMappedMan::CQuickslotKeyMappedMan
     Patch4(0x0072B7CE + 1, (DWORD)&Array_aDefaultQKM_0);
+    // CQuickslotKeyMappedMan::DefaultQuickslotKeyMap(CQuickslotKeyMappedMan *this)
     Patch4(0x0072B8EB + 1, (DWORD)&Array_aDefaultQKM_0);
 
+
+    // 8 -》30就是0x1E  
+    // CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
     Patch1(0x008DD916, 0x1E);
     Patch1(0x008DD8AD, 0x1E);
-    Patch1(0x008DD8FD, 0xBB);
-    Patch4(0x008DD8FD + 1, (DWORD)&Array_Expanded);
-    Patch1(0x008DD8FD + 5, 0x90);
-    Patch1(0x008DD898, 0xB8);
+
+
+    //CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
+    // :008DD8FD 8D 9E 20 0D 00 00                 lea     ebx, [esi+0D20h] ; Load Effective Address
+    Patch1(0x008DD8FD, 0xBB);                        // 0xBB 是 mov ebx, <32位立即数>
+    Patch4(0x008DD8FD + 1, (DWORD)&Array_Expanded);  // 填入新数组的内存地址
+    Patch1(0x008DD8FD + 5, 0x90);                    // 0x90 是 NOP（空指令），用来对齐和填充旧指令剩下的垃圾字节
+
+    // :008DD898 8D 86 20 0D 00 00                 lea     eax, [esi+0D20h] ; Load Effective Address
+    Patch1(0x008DD898, 0xB8);                       // mov eax
     Patch4(0x008DD898 + 1, (DWORD)&Array_Expanded);
     Patch1(0x008DD898 + 5, 0x90);
 
-    Patch1(0x008DE75E + 3, 0x7C);
+    // CUIStatusBar::CQuickSlot::Draw
+    // :008DE75E 83 7D B8 24                       cmp     [ebp+var_48], 24h ; '$' ; Compare Two Operands
+    Patch1(0x008DE75E + 3, 0x7C);   // 124字节 和cooldown_Array相同
+
     Patch1(0x008DDF99, 0xB8);
     Patch4(0x008DDF99 + 1, (DWORD)&Array_Expanded);
     PatchNop(0x008DDF99 + 5, 0x008DDF99 + 8);
 
+
+
+    // ___:008D7F1E 8D B4 83 1C 0D 00                 lea     esi, [ebx+eax*4+0D1Ch] ; Load Effective Address
+    // 原版逻辑：eax 是快捷键的索引（0~7）。游戏通过 [ebx + eax*4 + 0xD1C]，先找到对象基址 ebx，加上结构体内部偏移 0xD1C，再乘以索引，算出了旧快捷键的内存地址。
+    // 补丁逻辑：作者把机器码强行改成了 34 85。在 x86 汇编中，8D 34 85 刚好代表 lea esi, [eax * 4 + 立即数]。这样就直接扔掉了原本的结构体基址 ebx 和内部偏移，
+    // 让 esi 直接指向了你新开辟的全局数组 Array_Expanded 对应的索引位置！
     Patch1(0x008D7F1E + 1, 0x34);
     Patch1(0x008D7F1E + 2, 0x85);
     Patch4(0x008D7F1E + 3, (DWORD)&Array_Expanded);
 
-    Patch4(0x008DE94D + 2, (DWORD)&Array_ptShortKeyPos);
-    Patch4(0x008DE955 + 2, (DWORD)&Array_ptShortKeyPos + 4);
-    Patch1(0x008DE941 + 2, 0x1E);
+
+    Patch4(0x008DE94D + 2, (DWORD)&Array_ptShortKeyPos);   //x
+    Patch4(0x008DE955 + 2, (DWORD)&Array_ptShortKeyPos + 4);  //y          
+
+    Patch1(0x008DE941 + 2, 0x1E);  // 设置值1E
 
     Patch4(0x008DE8F4 + 1, (DWORD)&Array_ptShortKeyPos + 4);
-    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 30 * 8);
+    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 30 * 8);   // 结尾
 
     Patch1(0x008E099F + 3, 0x1E);
-    Patch1(0x008E069D, 0xBE);
+    Patch1(0x008E069D, 0xBE);                 // 0xBE：代表 mov esi, <32位立即数>
     Patch4(0x008E069D + 1, (DWORD)&cooldown_Array);
     Patch1(0x008E069D + 5, 0x90);
-    Patch1(0x008E06A3, 0xBF);
+    Patch1(0x008E06A3, 0xBF);                // 0xBF：代表 mov edi, <32位立即数>
     Patch4(0x008E06A3 + 1, (DWORD)&Array_Expanded + 1);
     Patch1(0x008E06A3 + 5, 0x90);
 
+
+    // 改变数值1E 30 / 7C 124 / 78 120
     Patch1(0x004F928A + 2, 0x1E);
     Patch1(0x004F93F9 + 2, 0x1E);
 
+    /*
+    * 根据结构体
+    00000000 CQuickslotKeyMappedMan struc ; (sizeof=0x44, align=0x4, copyof_7404)
+    00000000 __vftable       dd ?                    ; offset
+    00000004 m_aQuickslotKeyMapped dd 8 dup(?)
+    00000024 m_aQuickslotKeyMapped_Old dd 8 dup(?)
+    00000044 CQuickslotKeyMappedMan ends
+    
+    旧的  0x04 + 0x20 = 0x24 是m_aQuickslotKeyMapped_Old的起始地址
+    起始地址是 0x04 + 新数组大小 0x78 = 0x7C
+
+    */
+    // CUIKeyConfig::OnDestroy
+
+    // lea eax, [edi + 24h]，实际上就是让 eax 指向旧快捷键数组（Old）的起始位置。
+    // .text:00833797  8D 47 24      lea eax, [edi + 24h]
+    // .text:00833797  8D 47 7C      lea eax, [edi + 7Ch]
     Patch1(0x00833797 + 2, 0x7C);
     Patch1(0x00833841 + 2, 0x7C);
-    Patch1(0x00833791 + 1, 0x78);
+    
+    Patch1(0x00833791 + 1, 0x78);   // 新数组的长度
     Patch1(0x0083383B + 1, 0x78);
 
     Patch1(0x0083287F + 2, 0x7C);
@@ -407,6 +464,7 @@ void AttachQuickSlotsMod() {
     g_pQuickSlotM_encoded = EncodeStringAlloc("UI/StatusBar.img/base/quickSlotM");
     g_pQuickSlot_stock = g_ppStringPool[SP_QUICKSLOT_INDEX];
 
+    // ___:008DDE74 68 C8 09 00 00                    push    9C8h            ; a3
     PatchJmp(0x008DDE74, &QuickSlotArt_cave);
     PatchJmp(0x008DD8B8, &CompareValidateFuncKeyMappedInfo_cave);
     PatchJmp(0x009FA0DB, &sub_9FA0CB_cave);
