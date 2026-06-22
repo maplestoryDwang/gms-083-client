@@ -2,25 +2,54 @@
 #include "hook.h"
 
 int get_screen_width();
+void ApplyDynamicSlotPatches();
+
+
+// ==========================================
+// 动态调试配置中心 (可以在外面或运行时随时修改)
+// ==========================================
+int g_nCurrentSlotCount = 30;   // 当前使用的快捷键数量 
+
+
+const int g_nMaxSlotCount = 30; // 数组开辟的最大空间上限，用于防止内存越界
+const int g_nSSlotCount = 8; // 数组开辟的最大空间上限，用于防止内存越界
+const int g_nMSlotCount = 12; // 数组开辟的最大空间上限，用于防止内存越界
+
+// ==========================================
+// 动态计算辅助函数 (自动生成 0x7C, 0x78 等参数)
+// ==========================================
+inline unsigned char GetSlotCountHex() {
+    return static_cast<unsigned char>(g_nCurrentSlotCount); // 对应原 0x1E (30)
+}
+
+inline unsigned char GetArrayLengthHex() {
+    return static_cast<unsigned char>(g_nCurrentSlotCount * 4); // 对应原 0x78 (120)
+}
+
+inline unsigned char GetOldArrayOffsetHex() {
+    return static_cast<unsigned char>(4 + (g_nCurrentSlotCount * 4)); // 对应原 0x7C (124)
+}
+
+
 
 // 15 X2 键  上1 下1 上2 下2排列
 unsigned char Array_aDefaultQKM[] = {
-    42, 0, 0, 0,   //shift
-    82, 0, 0, 0,   //ins
-    71, 0, 0, 0,   //hm
-    73, 0, 0, 0,   // pup
-    2, 0, 0, 0,    //1
-    3, 0, 0, 0,    //2
-    4, 0, 0, 0,    //3
+    42, 0, 0, 0, // shift
+    82, 0, 0, 0, // ins
+    71, 0, 0, 0, // hm
+    73, 0, 0, 0, // pup
+    2, 0, 0, 0,  // 1
+    3, 0, 0, 0,  // 2
+    4, 0, 0, 0,  // 3
     5, 0, 0, 0,
-    6, 0, 0, 0,    //5
-    30, 0, 0, 0,   // a
+    6, 0, 0, 0,  // 5
+    30, 0, 0, 0, // a
     31, 0, 0, 0,
     32, 0, 0, 0,
     33, 0, 0, 0,
     29, 0, 0, 0,
     83, 0, 0, 0,
-    79, 0, 0, 0,  
+    79, 0, 0, 0,
     81, 0, 0, 0,
     16, 0, 0, 0,
     17, 0, 0, 0,
@@ -71,190 +100,131 @@ unsigned char Array_ptShortKeyPos[] = {
     241, 1, 0, 0, 41, 0, 0, 0
 };
 
-// old键盘
-unsigned char Array_aDefaultQKM_0[] = {
-    42, 0, 0, 0, // shift
-    82, 0, 0, 0, // ins
-    71, 0, 0, 0, // hm
-    73, 0, 0, 0, // pup
-    2, 0, 0, 0,  // 1
-    3, 0, 0, 0,  // 2
-    4, 0, 0, 0,  // 3
-    5, 0, 0, 0,
-    6, 0, 0, 0,  // 5
-    30, 0, 0, 0, // a
-    31, 0, 0, 0,
-    32, 0, 0, 0,
-    33, 0, 0, 0,
-    29, 0, 0, 0,
-    83, 0, 0, 0,
-    79, 0, 0, 0,
-    81, 0, 0, 0,
-    16, 0, 0, 0,
-    17, 0, 0, 0,
-    18, 0, 0, 0,
-    19, 0, 0, 0,
-    20, 0, 0, 0,
-    44, 0, 0, 0,
-    45, 0, 0, 0,
-    46, 0, 0, 0,
-    47, 0, 0, 0,
-    52, 0, 0, 0,
-    7, 0, 0, 0,
-    8, 0, 0, 0,
-    9, 0, 0, 0
-};
+// old键盘 120
+unsigned char Array_aDefaultQKM_0[g_nMaxSlotCount * 4]; // 动态初始化，大小与最大支持格子匹配
 
+// 360字节的扩展数组 (30 * 12)
+unsigned char Array_Expanded[g_nMaxSlotCount * 12];
 
-
-// 360 / 30 = 12
-// 是否初始值有用？
-unsigned char Array_Expanded[360] = {
-    4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    4, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    5, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-// 124 / 4 = 31 why?
-unsigned char cooldown_Array[124] = {
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255
-};
+// 120 = 30 x 4 不知道为什么多给4
+//unsigned char cooldown_Array[124]; // 动态分配和初始化
+unsigned char cooldown_Array[g_nMaxSlotCount * 4]; // 动态分配和初始化
 
 DWORD Array_aDefaultQKM_Address = (DWORD)&Array_aDefaultQKM;
 DWORD Array_Expanded_Address = (DWORD)&Array_Expanded;
 
+// ==========================================
+// 汇编中转裸函数 (注意内部的硬编码 0x1E 和 0x7C 也被外部变量动态化了)
+// ==========================================
 DWORD CompareValidate_Retn = 0x008DD8BD;
 DWORD sub_9FA0CB_cave_retn_1 = 0x009FA0E1;
 
 __declspec(naked) void CompareValidateFuncKeyMappedInfo_cave() {
     _asm {
-		push 0x168
-		push 0x0
-		push eax
-		pushad
-		popad
-		jmp CompareValidate_Retn
+        push 0x168
+        push 0x0
+        push eax
+        pushad
+        popad
+        jmp CompareValidate_Retn
     }
 }
 
 __declspec(naked) void sub_9FA0CB_cave() {
     _asm {
-		test eax, eax
-		jne  label
-		push 0xF4
-		pushad
-		popad
-		jmp  sub_9FA0CB_cave_retn_1
-	label:
-		push 0x168
-		push 0x0
-		push eax
-		pushad
-		popad
-		jmp  CompareValidate_Retn
+        test eax, eax
+        jne  label
+        push 0xF4
+        pushad
+        popad
+        jmp  sub_9FA0CB_cave_retn_1
+    label:
+        push 0x168
+        push 0x0
+        push eax
+        pushad
+        popad
+        jmp  CompareValidate_Retn
     }
 }
 
 __declspec(naked) void sDefaultQuickslotKeyMap_cave() {
     _asm {
-		push ebx
-		push esi
-		push edi
-		xor  edx, edx
-		mov  ebx, ecx
-		call label
-		nop
-		lea  edi, dword ptr ds:[ebx + 0x4]
-		mov  ecx, 0x1E
-		mov  esi, Array_aDefaultQKM_Address
-		rep  movsd
-		lea  edi, dword ptr ds:[ebx + 0x7C]
-		mov  ecx, 0x1E
-		mov  esi, Array_aDefaultQKM_Address
-		rep  movsd
-		pop  edi
-		pop  esi
-		pop  ebx
-		ret
-	label:
-		push esi
-		mov  esi, ecx
-		lea  eax, dword ptr ds:[esi + 0x4]
-		push 0x0072B7C2
-		ret
+        push ebx
+        push esi
+        push edi
+        xor  edx, edx
+        mov  ebx, ecx
+        call label
+        nop
+        lea  edi, dword ptr ds:[ebx + 0x4]
+
+        // 动态读取全局变量，不再硬编码 0x1E 和 0x7C
+        mov  ecx, g_nCurrentSlotCount 
+        mov  esi, Array_aDefaultQKM_Address
+        rep  movsd
+
+                        // 动态计算 Old 数组的目标位置
+        mov  eax, g_nCurrentSlotCount
+        shl  eax, 2 // eax = g_nCurrentSlotCount * 4
+        add  eax, 4 // eax = 4 + 新数组长度
+        lea  edi, dword ptr ds:[ebx + eax]
+        
+        mov  ecx, g_nCurrentSlotCount
+        mov  esi, Array_aDefaultQKM_Address
+        rep  movsd
+        
+        pop  edi
+        pop  esi
+        pop  ebx
+        ret
+    label:
+        push esi
+        mov  esi, ecx
+        lea  eax, dword ptr ds:[esi + 0x4]
+        push 0x0072B7C2
+        ret
     }
 }
 
 __declspec(naked) void DefaultQuickslotKeyMap_cave() {
     _asm {
-		push esi
-		push edi
-		lea  eax, dword ptr ds:[ecx + 0x4]
-		mov  esi, Array_aDefaultQKM_Address
-		mov  ecx, 0x1E
-		mov  edi, eax
-		rep  movsd
-		pop  edi
-		pop  esi
-		ret
+        push esi
+        push edi
+        lea  eax, dword ptr ds:[ecx + 0x4]
+        mov  esi, Array_aDefaultQKM_Address
+        mov  ecx, g_nCurrentSlotCount // 动态读取
+        mov  edi, eax
+        rep  movsd
+        pop  edi
+        pop  esi
+        ret
     }
 }
 
 __declspec(naked) void Restore_Array_Expanded_cave() {
     _asm {
-		push edi
-		push ecx
-		xor  eax, eax
-		mov  edi, Array_Expanded_Address
-		mov  ecx, 0x5A
-		rep  stosd
-		pop  ecx
-		pop  edi
-		lea  eax, [esi + 0xD7C]
-		push 0x008CFE03
-		ret
+        push edi
+        push ecx
+        xor  eax, eax
+        mov  edi, Array_Expanded_Address
+
+                // 360 字节 / 4 = 90 (0x5A)
+                // 保持清理整个缓冲区以确保安全
+        mov  ecx, 0x5A 
+        rep  stosd
+        pop  ecx
+        pop  edi
+        lea  eax, [esi + 0xD7C]
+        push 0x008CFE03
+        ret
     }
 }
 
+// ==========================================
+// 游戏引擎原厂指针/函数定义
+// ==========================================
 #define SP_QUICKSLOT_INDEX 2504
-
 static const char** g_ppStringPool = reinterpret_cast<const char**>(0x00BDC9D4);
 
 typedef void*(__cdecl* StringPool_GetInstance_t)();
@@ -266,35 +236,37 @@ static Layer_GetDim_t Layer_GetHeight = reinterpret_cast<Layer_GetDim_t>(0x00440
 
 typedef int(__stdcall* Canvas_Clear_t)(void* pCanvas, int x, int y, int w, int h, int color);
 
-// 图片指针
 static char* g_pQuickSlotS_encoded = nullptr;
 static char* g_pQuickSlotM_encoded = nullptr;
 static const char* g_pQuickSlot_stock = nullptr;
 static int g_nLastQuickSlotProfile = -1;
 
+// ==========================================
+// 游戏内实时刷新与分辨率同步 (包含运行时动态补丁)
+// ==========================================
 void __cdecl RefreshQuickSlotArt() {
     int nWidth = get_screen_width();
     int nProfile = (nWidth == 800) ? 0 : (nWidth == 1024) ? 1
                                                           : 2;
+
     if (nProfile == g_nLastQuickSlotProfile) {
         return;
     }
     g_nLastQuickSlotProfile = nProfile;
 
     const char* pFrame;
-    int nSlots;
     switch (nProfile) {
     case 0:
         pFrame = g_pQuickSlotS_encoded;
-        nSlots = 8;
+        g_nCurrentSlotCount = g_nSSlotCount; // 动态改变全局变量
         break;
     case 1:
         pFrame = g_pQuickSlotM_encoded;
-        nSlots = 12;
+        g_nCurrentSlotCount = g_nMSlotCount; // 动态改变全局变量
         break;
     default:
         pFrame = g_pQuickSlot_stock;
-        nSlots = 30;
+        g_nCurrentSlotCount = g_nMaxSlotCount; // 恢复最大上限
         break;
     }
 
@@ -305,19 +277,16 @@ void __cdecl RefreshQuickSlotArt() {
         reinterpret_cast<int*>(pInstance[0])[SP_QUICKSLOT_INDEX] = 0;
     }
 
-    // sub_8E0634
-    Patch1(0x008DE75E + 3, static_cast<unsigned char>(4 + nSlots * 4));
-    Patch1(0x008E099F + 3, static_cast<unsigned char>(nSlots));
+    // 重新应用动态补丁，把计算出的新参数动态写进内存
+    ApplyDynamicSlotPatches();
 }
 
 void __cdecl ClearQuickSlotFrame(void* pThis, void* pFrameCanvas) {
-    if (!pThis || !pFrameCanvas) {
+    if (!pThis || !pFrameCanvas)
         return;
-    }
     void* pLayer = *reinterpret_cast<void**>(reinterpret_cast<char*>(pThis) + 0xCC4);
-    if (!pLayer) {
+    if (!pLayer)
         return;
-    }
     int w = Layer_GetWidth(pLayer);
     int h = Layer_GetHeight(pLayer);
     void** vtbl = *reinterpret_cast<void***>(pFrameCanvas);
@@ -325,30 +294,78 @@ void __cdecl ClearQuickSlotFrame(void* pThis, void* pFrameCanvas) {
 }
 
 DWORD QuickSlotArt_Retn = 0x008DDE79;
-
 __declspec(naked) void QuickSlotArt_cave() {
     _asm {
-		pushad
-		call RefreshQuickSlotArt
-		mov  eax, [ebp - 0x18]
-		push eax
-		mov  eax, [ebp - 0x3C]
-		push eax
-		call ClearQuickSlotFrame
-		add  esp, 8
-		popad
-		push 0x9C8  //补回游戏原本在 0x008DDE74 左右被你擦除掉的原始指令
-		jmp  QuickSlotArt_Retn
+        pushad
+        call RefreshQuickSlotArt
+        mov  eax, [ebp - 0x18]
+        push eax
+        mov  eax, [ebp - 0x3C]
+        push eax
+        call ClearQuickSlotFrame
+        add  esp, 8
+        popad
+        push 0x9C8  
+        jmp  QuickSlotArt_Retn
     }
 }
 
-void AttachQuickSlotsMod() {
+// ==========================================
+// 新增：核心动态补丁刷新器
+// ==========================================
+void ApplyDynamicSlotPatches() {
+    unsigned char slots = GetSlotCountHex();       // 比如 0x1E
+    unsigned char len = GetArrayLengthHex();       // 比如 0x78
+    unsigned char offset = GetOldArrayOffsetHex(); // 比如 0x7C
 
-    // CUIStatusBar::OnCreate(_DWORD *a1@<ecx>, int ebp0@<ebp>, int a3) 重新绘制宽度
-    // Layer = IWzGr2D::CreateLayer(dword_BF14EC, (ebp0 - 16), 0, 0,  97h, 80, 0, (ebp0 - 80), (ebp0 - 40));
-    // 008D155C 68 97 00 00 00                    push    97h       // 97h -> 03F0h
-    Patch1(0x008D155C + 1, 0xF0);   
-    Patch1(0x008D155C + 2, 0x03);   
+    // 1. 动态改写循环格子数量 (原本的 0x1E 集合)
+    Patch1(0x008DD916, slots);
+    Patch1(0x008DD8AD, slots);
+    Patch1(0x008DE941 + 2, slots);
+    Patch1(0x008E099F + 3, slots);
+    Patch1(0x004F928A + 2, slots);
+    Patch1(0x004F93F9 + 2, slots);
+
+    // 2. 动态改写 Draw 函数里的范围限制（原本的 0x7C）
+    Patch1(0x008DE75E + 3, offset);
+
+    // 3. 动态改写各类结构体 Old 数组位置偏移补丁（原 0x7C 与 0x78 的集合）
+    Patch1(0x00833797 + 2, offset);
+    Patch1(0x00833841 + 2, offset);
+    Patch1(0x00833791 + 1, len);
+    Patch1(0x0083383B + 1, len);
+
+    Patch1(0x0083287F + 2, offset);
+    Patch1(0x00832882 + 1, len);
+
+    Patch1(0x0072B8C0 + 2, offset);
+    Patch1(0x0072B8A0 + 1, len);
+    Patch1(0x0072B8BD + 1, len);
+
+    Patch1(0x0072B83E + 1, len);
+    Patch1(0x0072B861 + 1, len);
+    Patch1(0x0072B867 + 2, offset);
+
+    Patch1(0x00836A1E + 1, len);
+    Patch1(0x00836A21 + 2, offset);
+
+    // 4. 动态改写坐标数组结尾边界判断
+    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + g_nCurrentSlotCount * 8);
+}
+
+// ==========================================
+// 初始化 Hook 入口
+// ==========================================
+void AttachQuickSlotsMod() {
+    // 内存初始化
+    memset(Array_aDefaultQKM_0, 0, sizeof(Array_aDefaultQKM_0));
+    memcpy(Array_aDefaultQKM_0, Array_aDefaultQKM, sizeof(Array_aDefaultQKM));
+    memset(cooldown_Array, 0xFF, sizeof(cooldown_Array));
+    memset(Array_Expanded, 0, sizeof(Array_Expanded));
+
+    // 重新绘制状态栏宽度
+    Patch1(0x008D155C + 1, 0xF0);
+    Patch1(0x008D155C + 2, 0x03);
 
     Patch1(0x008D182E + 1, 0xF0);
     Patch1(0x008D182E + 2, 0x03);
@@ -356,115 +373,50 @@ void AttachQuickSlotsMod() {
     Patch1(0x008D1AC0 + 1, 0xF0);
     Patch1(0x008D1AC0 + 2, 0x03);
 
-
-
-    // hook dword_BDAFAC 2Ah, 52h, 47h, 49h, 1Dh, 53h, 4Fh, 51h
-    // 设置旧的键盘
-    // CQuickslotKeyMappedMan::CQuickslotKeyMappedMan
+    // 设置默认与旧的键盘指针
     Patch4(0x0072B7CE + 1, (DWORD)&Array_aDefaultQKM_0);
-    // CQuickslotKeyMappedMan::DefaultQuickslotKeyMap(CQuickslotKeyMappedMan *this)
     Patch4(0x0072B8EB + 1, (DWORD)&Array_aDefaultQKM_0);
 
+    // 劫持指针指向扩展数组
+    Patch1(0x008DD8FD, 0xBB);
+    Patch4(0x008DD8FD + 1, (DWORD)&Array_Expanded);
+    Patch1(0x008DD8FD + 5, 0x90);
 
-    // 8 -》30就是0x1E  
-    // CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
-    Patch1(0x008DD916, 0x1E);
-    Patch1(0x008DD8AD, 0x1E);
-
-
-    //CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
-    // :008DD8FD 8D 9E 20 0D 00 00                 lea     ebx, [esi+0D20h] ; Load Effective Address
-    Patch1(0x008DD8FD, 0xBB);                        // 0xBB 是 mov ebx, <32位立即数>
-    Patch4(0x008DD8FD + 1, (DWORD)&Array_Expanded);  // 填入新数组的内存地址
-    Patch1(0x008DD8FD + 5, 0x90);                    // 0x90 是 NOP（空指令），用来对齐和填充旧指令剩下的垃圾字节
-
-    // :008DD898 8D 86 20 0D 00 00                 lea     eax, [esi+0D20h] ; Load Effective Address
-    Patch1(0x008DD898, 0xB8);                       // mov eax
+    Patch1(0x008DD898, 0xB8);
     Patch4(0x008DD898 + 1, (DWORD)&Array_Expanded);
     Patch1(0x008DD898 + 5, 0x90);
-
-    // CUIStatusBar::CQuickSlot::Draw
-    // :008DE75E 83 7D B8 24                       cmp     [ebp+var_48], 24h ; '$' ; Compare Two Operands
-    Patch1(0x008DE75E + 3, 0x7C);   // 124字节 和cooldown_Array相同
 
     Patch1(0x008DDF99, 0xB8);
     Patch4(0x008DDF99 + 1, (DWORD)&Array_Expanded);
     PatchNop(0x008DDF99 + 5, 0x008DDF99 + 8);
 
-
-
-    // ___:008D7F1E 8D B4 83 1C 0D 00                 lea     esi, [ebx+eax*4+0D1Ch] ; Load Effective Address
-    // 原版逻辑：eax 是快捷键的索引（0~7）。游戏通过 [ebx + eax*4 + 0xD1C]，先找到对象基址 ebx，加上结构体内部偏移 0xD1C，再乘以索引，算出了旧快捷键的内存地址。
-    // 补丁逻辑：作者把机器码强行改成了 34 85。在 x86 汇编中，8D 34 85 刚好代表 lea esi, [eax * 4 + 立即数]。这样就直接扔掉了原本的结构体基址 ebx 和内部偏移，
-    // 让 esi 直接指向了你新开辟的全局数组 Array_Expanded 对应的索引位置！
+    // 快捷键索引重定向
     Patch1(0x008D7F1E + 1, 0x34);
     Patch1(0x008D7F1E + 2, 0x85);
     Patch4(0x008D7F1E + 3, (DWORD)&Array_Expanded);
 
-
-    Patch4(0x008DE94D + 2, (DWORD)&Array_ptShortKeyPos);   //x
-    Patch4(0x008DE955 + 2, (DWORD)&Array_ptShortKeyPos + 4);  //y          
-
-    Patch1(0x008DE941 + 2, 0x1E);  // 设置值1E
+    // 坐标分配
+    Patch4(0x008DE94D + 2, (DWORD)&Array_ptShortKeyPos);
+    Patch4(0x008DE955 + 2, (DWORD)&Array_ptShortKeyPos + 4);
 
     Patch4(0x008DE8F4 + 1, (DWORD)&Array_ptShortKeyPos + 4);
-    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 30 * 8);   // 结尾
 
-    Patch1(0x008E099F + 3, 0x1E);
-    Patch1(0x008E069D, 0xBE);                 // 0xBE：代表 mov esi, <32位立即数>
+    // 冷却时间重定向
+    Patch1(0x008E069D, 0xBE);
     Patch4(0x008E069D + 1, (DWORD)&cooldown_Array);
     Patch1(0x008E069D + 5, 0x90);
-    Patch1(0x008E06A3, 0xBF);                // 0xBF：代表 mov edi, <32位立即数>
+    Patch1(0x008E06A3, 0xBF);
     Patch4(0x008E06A3 + 1, (DWORD)&Array_Expanded + 1);
     Patch1(0x008E06A3 + 5, 0x90);
 
+    // 执行首次动态计算补丁应用
+    ApplyDynamicSlotPatches();
 
-    // 改变数值1E 30 / 7C 124 / 78 120
-    Patch1(0x004F928A + 2, 0x1E);
-    Patch1(0x004F93F9 + 2, 0x1E);
-
-    /*
-    * 根据结构体
-    00000000 CQuickslotKeyMappedMan struc ; (sizeof=0x44, align=0x4, copyof_7404)
-    00000000 __vftable       dd ?                    ; offset
-    00000004 m_aQuickslotKeyMapped dd 8 dup(?)
-    00000024 m_aQuickslotKeyMapped_Old dd 8 dup(?)
-    00000044 CQuickslotKeyMappedMan ends
-    
-    旧的  0x04 + 0x20 = 0x24 是m_aQuickslotKeyMapped_Old的起始地址
-    起始地址是 0x04 + 新数组大小 0x78 = 0x7C
-
-    */
-    // CUIKeyConfig::OnDestroy
-
-    // lea eax, [edi + 24h]，实际上就是让 eax 指向旧快捷键数组（Old）的起始位置。
-    // .text:00833797  8D 47 24      lea eax, [edi + 24h]
-    // .text:00833797  8D 47 7C      lea eax, [edi + 7Ch]
-    Patch1(0x00833797 + 2, 0x7C);
-    Patch1(0x00833841 + 2, 0x7C);
-    
-    Patch1(0x00833791 + 1, 0x78);   // 新数组的长度
-    Patch1(0x0083383B + 1, 0x78);
-
-    Patch1(0x0083287F + 2, 0x7C);
-    Patch1(0x00832882 + 1, 0x78);
-
-    Patch1(0x0072B8C0 + 2, 0x7C);
-    Patch1(0x0072B8A0 + 1, 0x78);
-    Patch1(0x0072B8BD + 1, 0x78);
-
-    Patch1(0x0072B83E + 1, 0x78);
-    Patch1(0x0072B861 + 1, 0x78);
-    Patch1(0x0072B867 + 2, 0x7C);
-
-    Patch1(0x00836A1E + 1, 0x78);
-    Patch1(0x00836A21 + 2, 0x7C);
-
+    // 加载资源皮肤并应用中转跳
     g_pQuickSlotS_encoded = EncodeStringAlloc("UI/StatusBar.img/base/quickSlotS");
     g_pQuickSlotM_encoded = EncodeStringAlloc("UI/StatusBar.img/base/quickSlotM");
     g_pQuickSlot_stock = g_ppStringPool[SP_QUICKSLOT_INDEX];
 
-    // ___:008DDE74 68 C8 09 00 00                    push    9C8h            ; a3
     PatchJmp(0x008DDE74, &QuickSlotArt_cave);
     PatchJmp(0x008DD8B8, &CompareValidateFuncKeyMappedInfo_cave);
     PatchJmp(0x009FA0DB, &sub_9FA0CB_cave);
