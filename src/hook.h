@@ -115,6 +115,7 @@ void PatchStr(T pAddress, const char* sValue) {
     PatchMemory(TO_PVOID(pAddress), TO_PVOID(sValue), strlen(sValue));
 }
 
+// 不包括结尾的
 template <typename T, typename U>
 void PatchNop(T pAddress, U pDestination) {
     size_t uSize = TO_UINTPTR(pDestination) - TO_UINTPTR(pAddress);
