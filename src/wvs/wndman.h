@@ -56,7 +56,7 @@ public:
             ms_pOrgQuickSlot->origin = static_cast<IUnknown*>(ms_pOrgWindowEx[Origin_LB]);
             if (get_screen_width() > 800) {
                 ms_pOrgScreenMsg->RelMove(0, -10);
-                ms_pOrgQuickSlot->RelMove(152, 68);
+                ms_pOrgQuickSlot->RelMove(152, 68);  // ÒÆ¶¯¿ì½Ý¼üÎ»ÖÃ
             } else {
                 ms_pOrgScreenMsg->RelMove(0, 0);
                 ms_pOrgQuickSlot->RelMove(0, 0);

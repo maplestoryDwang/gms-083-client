@@ -131,6 +131,8 @@ void PatchJmp(T pAddress, U pDestination) {
     Patch4(pAddress + 1, TO_UINTPTR(pDestination) - TO_UINTPTR(pAddress) - 5);
 }
 
+
+
 template <typename T, typename U>
 void PatchCall(T pAddress, U pDestination, size_t uSize = 5) {
     if (uSize < 5) {
