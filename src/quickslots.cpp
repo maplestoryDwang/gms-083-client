@@ -282,14 +282,15 @@ ___:008DE75E 83 7D B8 24                       cmp     [ebp+var_48], 24h ; '$' ;
 ___:008DE762 0F 8C 46 F8 FF FF                 jl      loc_8DDFAE      ; Jump if Less (SF!=OF)
 */
 // 劫持起点是 0x008DE75E，连续吞掉 10 字节后，下一条安全的返回地址是 0x008DE768
-DWORD DrawLimit_Retn_Normal = 0x008DE768; // 正常向下执行的返回点
-DWORD DrawLimit_Retn_Jump = 0x008DDFAE;   // 如果小于(jl)需要跳转的目标地址
+DWORD DrawLimit_Retn_hook = 0x008DE75E;   // 正常向下执行的返回点
+DWORD DrawLimit_Retn_Normal = 0x008DE768;   // 正常向下执行的返回点
+DWORD DrawLimit_Retn_Jump   = 0x008DDFAE;   // 如果小于(jl)需要跳转的目标地址
 
 __declspec(naked) void DrawLimit_cave() {
     _asm {
         // 直接对内存地址与 132 (0x84) 进行 32 位大整数比较
         // 这样既安全、效率高，又 100% 不会污染任何寄存器！
-        cmp dword ptr [ebp - 0x48], 132
+        cmp dword ptr [ebp - 0x48], 132   // 4 + 64 + 64
 
         // 恢复原本的 jl 逻辑
         jl loc_less
@@ -377,6 +378,7 @@ void __cdecl RefreshQuickSlotArt() {
 
 
 
+
 void __cdecl ClearQuickSlotFrame(void* pThis, void* pFrameCanvas) {
     if (!pThis || !pFrameCanvas) {
         return;
@@ -385,6 +387,8 @@ void __cdecl ClearQuickSlotFrame(void* pThis, void* pFrameCanvas) {
     if (!pLayer) {
         return;
     }
+    int w = Layer_GetWidth(pLayer);
+    int h = Layer_GetHeight(pLayer);
     void** vtbl = *reinterpret_cast<void***>(pFrameCanvas);
     reinterpret_cast<Canvas_Clear_t>(vtbl[0x8C / 4])(pFrameCanvas, 0, 0, w, h, 0xFFFFFF); // 虚函数
 }
@@ -516,201 +520,132 @@ __declspec(naked) void sub_8369D0_cave() {
 }
 
 
-DWORD StatusBarClickRange_Rtn_Hook = 0x008DE850; // hook开始的地方
+//DWORD StatusBarClickRange_Rtn_Hook = 0x008DE850; // hook开始的地方
+
+DWORD StatusBarClickRange_Rtn_Hook = 0x008DE8BB; // hook开始的地方
 DWORD StatusBarClickRange_Rtn_INT = 0x008DE8CC;  // 可以点击
 DWORD StatusBarClickRange_Rtn_ZERO = 0x008DE8C8; // 不能点击
 DWORD StatusBarClickRange_Rtn; // 返回值
 
+int StatusBarClickRange_Rtn_Offset = StatusBarClickRange_Rtn_INT - StatusBarClickRange_Rtn_Hook; // hook开始的地方
 
-int m_nChatWndType;   // 聊天窗状态 1=隐藏 3=显示
-int m_nChatWndHeight; // 聊天窗高度 最大值为489
-int rx;               // 鼠标位置，从statusbar算起，而非整个游戏窗口
-int ry;               // 鼠标位置，从statusbar算起，而非整个游戏窗口
-int m_bDragChatWnd;   // 是否拖拽状态
-int quickSlotIsEnabled;
-// 8DE8C8 - 8DE850 = 120 / 0x78
-// 加上__declspec(naked) 保留ebp
-// 只要你在 __declspec(naked) 函数的大括号里面写了诸如 int x; 这样的代码，这个函数就不再是真正的 “naked（裸）” 函数了，编译器会自动给它“穿上衣服”（生成 push ebp 函数头），从而把原程序的 ebp 寄存器踩死。用全局变量中转是逆向写外挂/补丁最标准的做法。
 
-//__declspec(naked) void StatusBarClickRangeFunc() {
+
+//int m_nChatWndType;   // 聊天窗状态 1=隐藏 3=显示
+//int m_nChatWndHeight; // 聊天窗高度 最大值为489
+//int rx;               // 鼠标位置，从statusbar算起，而非整个游戏窗口
+//int ry;               // 鼠标位置，从statusbar算起，而非整个游戏窗口
+//int m_bDragChatWnd;   // 是否拖拽状态
+//int quickSlotIsEnabled;
+//// 8DE8C8 - 8DE850 = 120 / 0x78
+//// 加上__declspec(naked) 保留ebp
+//// 只要你在 __declspec(naked) 函数的大括号里面写了诸如 int x; 这样的代码，这个函数就不再是真正的 “naked（裸）” 函数了，编译器会自动给它“穿上衣服”（生成 push ebp 函数头），从而把原程序的 ebp 寄存器踩死。用全局变量中转是逆向写外挂/补丁最标准的做法。
 //
+//// ==================== 2. 纯 C++ 业务逻辑函数 ====================
+//void StatusBarClickRange_CPP() {
+//    int chatTopY = 507 - m_nChatWndHeight;
+//    int curWidth = get_screen_width(); 
+//    //StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
+//    int v7 = 507 - m_nChatWndHeight;
+//    int v8 = 507 - m_nChatWndHeight;
 //
-//    // 获取当时内存和寄存器中的参数
-//    _asm {
-//        push eax
-//        // this->m_nChatWndType != 1 
-//        mov  eax, [esi + 0D00h]               // m_nChatWndType = 3
-//        mov  m_nChatWndType, eax
-//
-//                //  m_nChatWndHeight = this->m_nChatWndHeight;
-//        mov  eax, [esi + 0CFCh]
-//        mov  m_nChatWndHeight, eax                                // 46 = 70
-//
-//        // .text:0086D582 81 FF 41 02 00 00                       cmp     edi, 241h
-//        // rx >= 577
-//
-//        mov  eax, [ebp+08h]
-//        mov  rx, eax
-//        mov  eax, [ebp+0Ch]
-//        mov  ry, eax
-//
-//        //  this->m_bDragChatWnd
-//        mov  eax, [esi + 0BB4h]
-//        mov  m_bDragChatWnd, eax
-//
-//        // this->m_QuickSlot
-//        mov  eax, [esi + 0D10h]        
-//        mov  quickSlotIsEnabled, eax // 获取是否可以
-//        pop  eax
+//    // 区域 1：正常聊天窗判定区
+//    // 条件：rx < 580 并且 聊天窗处于显示状态 (m_nChatWndType == 1) 并且 ry < 507
+//    if (rx < 580 && m_nChatWndType == 1 && ry < 507) {
+//        StatusBarClickRange_Rtn =  StatusBarClickRange_Rtn_ZERO; // 不能点击
+//    }
+//    // 区域 2：左侧边界判定区（非拖拽状态）
+//    // 条件：rx < 80 并且 ry < v7 并且 没在拖拽聊天窗 (!m_bDragChatWnd)
+//    if (rx < 80 && ry < v7 && !m_bDragChatWnd) {
+//        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
+//    }
+//    // 区域 3：中间非拖拽判定区
+//    // 条件：rx 在 80 ~ 580 之间 并且 ry < v8 并且 没在拖拽聊天窗 (!m_bDragChatWnd)
+//    if (rx >= 80 && rx <= 580 && ry < v8 && !m_bDragChatWnd) {
+//        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
+//    }
+//    // 区域 4：右侧扩展判定区
+//    if (rx > 647) {
+//        // 情况 A：如果 *(this + 836) [即 quickSlotIsEnabled] 为真，但 ry < 427 时
+//        if (quickSlotIsEnabled && ry < 427) {
+//            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
+//        }
+//        // 情况 B：如果 *(this + 836) 为假，只要 ry < 507 时
+//        if (!quickSlotIsEnabled && ry < 507) {
+//            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
+//        }
 //    }
 //
-//    int chatTopY = 507 - m_nChatWndHeight;
+//    // 区域 5：右侧特定夹缝区
+//    // 条件：rx 在 580 ~ 647 之间 并且 ry < 507
+//    if (rx >= 580 && rx <= 647 && ry < 507) {
+//        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
+//    }
 //
-//    StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT; // 不可点击
+//    // 如果以上所有拦截区域都没命中的话，默认就是可以点击
+//    StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT; 
+//}
 //
 //
-//    int curWidth = w;
+//// ==================== 3. 纯裸函数 Hook 入口 ====================
+//// 编译器绝对不会在这个函数里生成任何破坏 ebp 的垃圾指令！
+//__declspec(naked) void StatusBarClickRangeFunc() {
+//    __asm {
+//        // 1. 保护现场
+//        pushad
 //
+//                // 2. 抓取原程序中纯正、安全的寄存器和堆栈参数，存入全局变量
+//        mov  eax, [esi + 0x0D00]               
+//        mov  m_nChatWndType, eax
 //
+//        mov  eax, [esi + 0x0CFC]
+//        mov  m_nChatWndHeight, eax                         
 //
+//        mov  eax, [ebp + 0x08] // 真正的原程序 rx 
+//        mov  rx, eax
+//        mov  eax, [ebp + 0x0C] // 真正的原程序 ry
+//        mov  ry, eax
 //
-//    //if (curWidth > 800) {
-//    //    if (m_nChatWndType == 1) {     // 原来x 489 y 506
-//    //        if (rx < 1585 && ry > 506) // 鼠标在状态栏    1321 + 33*3 = 1420/16  | 1486是18键 | 1486 + 33*3=1585（21键时）
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //    } else {
-//    //        if (rx < 564 && ry > chatTopY) // 鼠标在聊天框头部以下的区域
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //        if (rx < 1585 && ry > 506) // 鼠标在状态栏
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //        // if (m_bDragChatWnd == 1 && rx < 564 && ry > chatTopY) // 拖拽聊天框状态下鼠标在状态栏
-//    //        //{
-//    //        //     StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        // }
-//    //    }
-//    //} else {
-//    //    if (m_nChatWndType == 1) {
-//    //        if (rx < 1321 && ry > 506) // 鼠标在状态栏
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //        if (quickSlotIsEnabled == 1 && rx > 368 && ry > 413) // 鼠标在快捷栏
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //    } else {
-//    //        if (rx < 564 && ry > chatTopY) // 鼠标在聊天框头部以下的区域
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //        if (rx < 1321 && ry > 506) // 鼠标在状态栏
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //        if (quickSlotIsEnabled == 1 && rx > 368 && ry > 413) // 鼠标在快捷栏
-//    //        {
-//    //            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-//    //        }
-//    //    }
-//    //}
+//        mov  eax, [esi + 0x0BB4]
+//        mov  m_bDragChatWnd, eax  // 0
+//
+//        mov  eax, [esi + 0x0D10]        
+//        mov  quickSlotIsEnabled, eax
+//
+//                // 3. 核心：调用 C++ 函数处理你后面复杂的 if-else 逻辑
+//                // 此时全局变量已被填满，C++ 函数可以直接用
+//        call StatusBarClickRange_CPP
+//
+//                        // 4. 恢复现场
+//        popad
+//    }
 //}
 
-// ==================== 2. 纯 C++ 业务逻辑函数 ====================
-void StatusBarClickRange_CPP() {
-    int chatTopY = 507 - m_nChatWndHeight;
-    int curWidth = get_screen_width(); 
-    //StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT;
-    int v7 = 507 - m_nChatWndHeight;
-    int v8 = 507 - m_nChatWndHeight;
 
-
-    // 区域 1：正常聊天窗判定区
-    // 条件：rx < 580 并且 聊天窗处于显示状态 (m_nChatWndType == 1) 并且 ry < 507
-    if (rx < 580 && m_nChatWndType == 1 && ry < 507) {
-        StatusBarClickRange_Rtn =  StatusBarClickRange_Rtn_ZERO; // 不能点击
-    }
-
-    // 区域 2：左侧边界判定区（非拖拽状态）
-    // 条件：rx < 80 并且 ry < v7 并且 没在拖拽聊天窗 (!m_bDragChatWnd)
-    if (rx < 80 && ry < v7 && !m_bDragChatWnd) {
-        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
-    }
-
-    // 区域 3：中间非拖拽判定区
-    // 条件：rx 在 80 ~ 580 之间 并且 ry < v8 并且 没在拖拽聊天窗 (!m_bDragChatWnd)
-    if (rx >= 80 && rx <= 580 && ry < v8 && !m_bDragChatWnd) {
-        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
-    }
-
-    // 区域 4：右侧扩展判定区
-    if (rx > 647) {
-        // 情况 A：如果 *(this + 836) [即 quickSlotIsEnabled] 为真，但 ry < 427 时
-        if (quickSlotIsEnabled && ry < 427) {
-            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
-        }
-        // 情况 B：如果 *(this + 836) 为假，只要 ry < 507 时
-        if (!quickSlotIsEnabled && ry < 507) {
-            StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
-        }
-    }
-
-    // 区域 5：右侧特定夹缝区
-    // 条件：rx 在 580 ~ 647 之间 并且 ry < 507
-    if (rx >= 580 && rx <= 647 && ry < 507) {
-        StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_ZERO; // 不能点击
-    }
-
-    // 如果以上所有拦截区域都没命中的话，默认就是可以点击
-    StatusBarClickRange_Rtn = StatusBarClickRange_Rtn_INT; 
-}
-
-
-// ==================== 3. 纯裸函数 Hook 入口 ====================
-// 编译器绝对不会在这个函数里生成任何破坏 ebp 的垃圾指令！
-__declspec(naked) void StatusBarClickRangeFunc() {
-    __asm {
-        // 1. 保护现场
-        pushad
-
-                // 2. 抓取原程序中纯正、安全的寄存器和堆栈参数，存入全局变量
-        mov  eax, [esi + 0x0D00]               
-        mov  m_nChatWndType, eax
-
-        mov  eax, [esi + 0x0CFC]
-        mov  m_nChatWndHeight, eax                         
-
-        mov  eax, [ebp + 0x08] // 真正的原程序 rx 
-        mov  rx, eax
-        mov  eax, [ebp + 0x0C] // 真正的原程序 ry
-        mov  ry, eax
-
-        mov  eax, [esi + 0x0BB4]
-        mov  m_bDragChatWnd, eax  // 0
-
-        mov  eax, [esi + 0x0D10]        
-        mov  quickSlotIsEnabled, eax
-
-                // 3. 核心：调用 C++ 函数处理你后面复杂的 if-else 逻辑
-                // 此时全局变量已被填满，C++ 函数可以直接用
-        call StatusBarClickRange_CPP
-
-                        // 4. 恢复现场
-        popad
-    }
-}
-
-
-// StatusBarClickRangeFunc 这个方法很重要，它会影响你鼠标的可点击区域。因为官方的客户端逻辑很乱。
 void _declspec(naked) StatusBarClickRange() {
-    _asm {
-        call StatusBarClickRangeFunc
-        jmp StatusBarClickRange_Rtn
+    __asm {
+        // 1. 正常执行原图的条件判断
+        cmp     edx, eax 
+        jle     _orig_jump // 原图跳往 8DE8CC
+
+        cmp     edx, ecx
+        jge     _orig_jump // 原图跳往 8DE8CC
+
+        cmp     dword ptr [ebp+0x0C], edi
+        jge     _orig_jump // 原图跳往 8DE8CC
+
+                // 2. 所有的条件都不成立（走原图 0x008DE8C8 的顺序执行路线）
+        //and     dword ptr [ebp+0x10], 0
+
+        // 顺序向下走，在原图就是 0x008DE8CC
+        // 为了不污染寄存器，直接用 push/ret 或者绝对跳转
+        push    0x008DE8CC
+        ret
+
+    _orig_jump:
+        // 3. 条件成立的情况，直接回到游戏的 0x008DE8CC
+        push    0x008DE8CC
+        ret
     }
 }
 
@@ -786,14 +721,14 @@ void AttachQuickSlotsMod() {
     // ----------------------------------------------------------------------
     // CUIStatusBar::HitTest
     // ----------------------------------------------------------------------
+    // 
+    
     //Patch4(0x008DE850 + 1, 0x47F); // 可按区域580/   X + 571 = 
     //Patch4(0x008DE82B + 1, 368); // 可按区域  Y
     // 
     //  好像不需要resolution有加    ATTACH_HOOK(CUIStatusBar::GetShortCutIndexByPos, CUIStatusBar::GetShortCutIndexByPos_hook)
     // ;
-    // todo 
-    //PatchCall(StatusBarClickRange_Rtn_Hook, reinterpret_cast<uintptr_t>(&StatusBarClickRange), 120); // CUIStatusBar::HitTest 重构了
-
+    PatchJmp2(StatusBarClickRange_Rtn_Hook, reinterpret_cast<uintptr_t>(&StatusBarClickRange), StatusBarClickRange_Rtn_Offset); // CUIStatusBar::HitTest 重构了
 
 
 

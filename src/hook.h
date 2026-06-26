@@ -146,6 +146,20 @@ void PatchCall(T pAddress, U pDestination, size_t uSize = 5) {
     }
 }
 
+template <typename T, typename U>
+void PatchJmp2(T pAddress, U pDestination, size_t uSize = 5) {
+    if (uSize < 5) {
+        ErrorMessage("Cannot PatchJmp at 0x%08X with uSize = %d", TO_UINTPTR(pAddress), uSize);
+        return;
+    }
+    Patch1(pAddress, 0xE9); // 0xE9 是 JMP，绝对不会动堆栈！
+    Patch4(pAddress + 1, TO_UINTPTR(pDestination) - TO_UINTPTR(pAddress) - 5);
+    if (uSize > 5) {
+        PatchNop(pAddress + 5, pAddress + uSize);
+    }
+}
+
+
 template <typename T>
 void PatchRetZero(T pAddress) {
     PatchStr(pAddress, "\x33\xC0\xC3");
