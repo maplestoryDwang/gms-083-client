@@ -4,41 +4,41 @@
 
 int get_screen_width();
 
-// 15 X2 键  上1 下1 上2 下2排列
+// 仿照官服但是是一上一下
 unsigned char Array_aDefaultQKM[] = {
-    42, 0, 0, 0, // shift
-    82, 0, 0, 0, // ins
-    71, 0, 0, 0, // hm
-    73, 0, 0, 0, // pup
-    2, 0, 0, 0,  // 1
-    3, 0, 0, 0,  // 2
-    4, 0, 0, 0,  // 3
-    5, 0, 0, 0,
-    6, 0, 0, 0,  // 5
-    30, 0, 0, 0, // a
-    31, 0, 0, 0,
-    32, 0, 0, 0,
-    33, 0, 0, 0,
+    42, 0, 0, 0,
     29, 0, 0, 0,
+    82, 0, 0, 0,
     83, 0, 0, 0,
+    71, 0, 0, 0,
     79, 0, 0, 0,
+    73, 0, 0, 0,
     81, 0, 0, 0,
+    2, 0, 0, 0,
     16, 0, 0, 0,
+    3, 0, 0, 0,
     17, 0, 0, 0,
+    4, 0, 0, 0,
     18, 0, 0, 0,
+    5, 0, 0, 0,
     19, 0, 0, 0,
-    20, 0, 0, 0,
-    44, 0, 0, 0,
-    45, 0, 0, 0,
-    46, 0, 0, 0,
-    47, 0, 0, 0,
-    52, 0, 0, 0,
-    7, 0, 0, 0,
-    8, 0, 0, 0,
-    9, 0, 0, 0,
-    23, 0, 0, 0,
-    24, 0, 0, 0,
 
+    6, 0, 0, 0,
+    20, 0, 0, 0,
+    7, 0, 0, 0,
+    30, 0, 0, 0,
+    8, 0, 0, 0,
+    31, 0, 0, 0,
+    9, 0, 0, 0,
+    32, 0, 0, 0,
+    10, 0, 0, 0,
+    33, 0, 0, 0,
+    11, 0, 0, 0,
+    34, 0, 0, 0,
+    37, 0, 0, 0,
+    49, 0, 0, 0,
+    38, 0, 0, 0,
+    50, 0, 0, 0
 };
 
 // x ,y 坐标 x+35 y+33
@@ -76,9 +76,6 @@ unsigned char Array_ptShortKeyPos[] = {
     20 , 2, 0, 0, 8, 0, 0, 0,
     20 , 2, 0, 0, 41, 0, 0, 0
 };
-
-
-
 
 // old键盘  120
 unsigned char Array_aDefaultQKM_0[] = {
@@ -273,11 +270,8 @@ __declspec(naked) void Restore_Array_Expanded_cave() {
 }
 
 
-// 008DE7DA CUIStatusBar::HitTest(CUIStatusBar *this, signed int a2, signed int a3, struct CCtrlWnd **a4)
-
-
 /*
-* 32已经不够了需要hook
+* 32键已经不够了需要hook
 ___:008DE75E 83 7D B8 24                       cmp     [ebp+var_48], 24h ; '$' ; Compare Two Operands
 ___:008DE762 0F 8C 46 F8 FF FF                 jl      loc_8DDFAE      ; Jump if Less (SF!=OF)
 */
@@ -295,7 +289,7 @@ __declspec(naked) void DrawLimit_cave() {
         // 恢复原本的 jl 逻辑
         jl loc_less
 
-                // 大于等于 132，循环结束，正常往下走
+        // 大于等于 132，循环结束，正常往下走
         jmp DrawLimit_Retn_Normal
 
     loc_less:
@@ -653,14 +647,14 @@ void _declspec(naked) StatusBarClickRange() {
 
 /*
 * 根据结构体
-00000000 CQuickslotKeyMappedMan struc ; (sizeof=0x44, align=0x4, copyof_7404)
-00000000 __vftable       dd ?                    ; offset
-00000004 m_aQuickslotKeyMapped dd 8 dup(?)
-00000024 m_aQuickslotKeyMapped_Old dd 8 dup(?)
-00000044 CQuickslotKeyMappedMan ends
+    00000000 CQuickslotKeyMappedMan struc ; (sizeof=0x44, align=0x4, copyof_7404)
+    00000000 __vftable       dd ?                    ; offset
+    00000004 m_aQuickslotKeyMapped dd 8 dup(?)
+    00000024 m_aQuickslotKeyMapped_Old dd 8 dup(?)
+    00000044 CQuickslotKeyMappedMan ends
 
-旧的  0x04 + 0x20 = 0x24 是m_aQuickslotKeyMapped_Old的起始地址
-起始地址是 0x04 + 新数组大小 0x78 = 0x7C
+    旧的  0x04 + 0x20 = 0x24 是m_aQuickslotKeyMapped_Old的起始地址
+    起始地址是 0x04 + 新数组大小 0x78 = 0x7C
 
 */
 void AttachQuickSlotsMod() {
@@ -728,7 +722,7 @@ void AttachQuickSlotsMod() {
     // 
     //  好像不需要resolution有加    ATTACH_HOOK(CUIStatusBar::GetShortCutIndexByPos, CUIStatusBar::GetShortCutIndexByPos_hook)
     // ;
-    PatchJmp2(StatusBarClickRange_Rtn_Hook, reinterpret_cast<uintptr_t>(&StatusBarClickRange), StatusBarClickRange_Rtn_Offset); // CUIStatusBar::HitTest 重构了
+    //PatchJmp2(StatusBarClickRange_Rtn_Hook, reinterpret_cast<uintptr_t>(&StatusBarClickRange), StatusBarClickRange_Rtn_Offset); // CUIStatusBar::HitTest 重构了
 
 
 
@@ -759,10 +753,10 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
     // signed int __stdcall CUIStatusBar::GetShortCutIndexByPos(int a1, int a2)
     // 设置esi进行比较
-    // _:008DE8F4 BE B4 2D BE 00                    mov     esi, offset dword_BE2DB4
-    Patch4(0x008DE8F4 + 1, (DWORD)&Array_ptShortKeyPos + 4); // y
+    // _:008DE8F4 BE B4 2D BE 00                    mov     esi, offset dword_BE2DB4  // 循环的初始值
+    Patch4(0x008DE8F4 + 1, (DWORD)&Array_ptShortKeyPos + 4); // y         // 默认初始值 8
     //   008DE926 81 FE F4 2D BE 00                 cmp     esi, offset dword_BE2DF4 ; Compare Two Operands
-    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 30 * 8); // 结尾  // 默认300 (12Ch)
+    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 32 * 8); // 结尾  // 默认300 (12Ch)  循环最大值
 
 
     // sub_8E0634

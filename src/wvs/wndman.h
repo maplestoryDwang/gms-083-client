@@ -54,12 +54,19 @@ public:
             ms_pOrgStatusBar->origin = static_cast<IUnknown*>(ms_pOrgWindowEx[Origin_LB]);
             ms_pOrgScreenMsg->origin = static_cast<IUnknown*>(ms_pOrgWindowEx[Origin_RB]);
             ms_pOrgQuickSlot->origin = static_cast<IUnknown*>(ms_pOrgWindowEx[Origin_LB]);
-            if (get_screen_width() > 800) {
+
+            int screen_width = get_screen_width();
+
+            if( screen_width > 1024) {
                 ms_pOrgScreenMsg->RelMove(0, -10);
-                ms_pOrgQuickSlot->RelMove(152, 68);  // 移动快捷键位置
+                ms_pOrgQuickSlot->RelMove(152, 68); // 移动快捷键位置
+
+            } else if (screen_width > 800) {
+                ms_pOrgScreenMsg->RelMove(0, -10);
+                ms_pOrgQuickSlot->RelMove(152, 68); // 移动快捷键位置 暂时先不动，后面看看
             } else {
                 ms_pOrgScreenMsg->RelMove(0, 0);
-                ms_pOrgQuickSlot->RelMove(0, 0);
+                ms_pOrgQuickSlot->RelMove(8, 0); // 右边移动一点点
             }
         }
     }
