@@ -14,9 +14,9 @@ add_library(injector SHARED
     tempstat.cpp
     stringpool.cpp
     debug.cpp
-    hook.cpp
+    hook.cpp    
     quickslots.cpp
-)
+    chiness.cpp)
 
 target_precompile_headers(injector PRIVATE pch.h)
 

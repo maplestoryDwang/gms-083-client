@@ -841,7 +841,7 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
     Patch4(0x008DE8F4 + 1, (DWORD)&Array_ptShortKeyPos + 4); // y         // 默认初始值 8
     //   008DE926 81 FE F4 2D BE 00                 cmp     esi, offset dword_BE2DF4 ; Compare Two Operands = dword_BE2DF4 = 12CH 
-    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 32 * 8); // 结尾  // 默认300 (12Ch)  循环最大值
+    Patch4(0x008DE926 + 2, (DWORD)&Array_ptShortKeyPos + 4 + 32 * 8); // 结尾  // 默认300 (12Ch)  循环最大值  之前就是这里少了设置成了30*8 一直没发现...
 
 
 

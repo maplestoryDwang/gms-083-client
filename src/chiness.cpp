@@ -1,75 +1,12 @@
 #include "pch.h"
 #include "hook.h"
 #include "ztl/ztl.h"
-#include <cstdlib> // <-- add near the other includes
+#include "constants.h"
 
 
-// 假设 GetLength 就是 strlen，这里直接用 strlen(NEW_STRING) + 2
-#define REPLACE_STRING(INDEX, NEW_STRING) \
-    do { \
-        char* sEncoded = new char[strlen(NEW_STRING) + 2]; \
-        EncodeString(INDEX, NEW_STRING, sEncoded); \
-    } while (0)
-
-
-class StringPool {
-public:
-    inline static auto ms_aKey = reinterpret_cast<const unsigned char*>(0x00B001EC);
-    inline static auto ms_aString = reinterpret_cast<const char**>(0x00BDC9D4);
-
-    class Key {
-    public:
-        ZArray<unsigned char> m_aKey;
-        Key(const unsigned char* pKey, unsigned int nKeySize, unsigned int nSeed) {
-            reinterpret_cast<void(__thiscall*)(Key*, const unsigned char*, unsigned int, unsigned int)>(0x0079E780)(this, pKey, nKeySize, nSeed);
-        }
-    };
-    static_assert(sizeof(Key) == 0x4);
-};
-
-constexpr size_t GetLength(const char* s) {
-    size_t n = 0;
-    while (s[n]) {
-        ++n;
-    }
-    return n;
-}
-
-void EncodeString(int nIdx, const char* sSource, char* sDestination) {
-    StringPool::Key keygen(StringPool::ms_aKey, 0x10, 0);
-    size_t n = strlen(sSource);
-    for (size_t i = 0; i < n; ++i) {
-        unsigned char key = keygen.m_aKey[i % 0x10];
-        sDestination[i + 1] = sSource[i] ^ key;
-        if (static_cast<uint8_t>(sSource[i]) == static_cast<uint8_t>(key)) {
-            sDestination[i + 1] = key;
-        }
-    }
-    sDestination[0] = 0;
-    sDestination[n + 1] = 0;
-    StringPool::ms_aString[nIdx] = sDestination;
-}
-
-char* EncodeStringAlloc(const char* sSource) {
-    StringPool::Key keygen(StringPool::ms_aKey, 0x10, 0);
-    size_t n = strlen(sSource);
-    char* sDestination = static_cast<char*>(malloc(n + 2));
-    for (size_t i = 0; i < n; ++i) {
-        unsigned char key = keygen.m_aKey[i % 0x10];
-        sDestination[i + 1] = sSource[i] ^ key;
-        if (static_cast<uint8_t>(sSource[i]) == static_cast<uint8_t>(key)) {
-            sDestination[i + 1] = key;
-        }
-    }
-    sDestination[0] = 0;
-    sDestination[n + 1] = 0;
-    return sDestination;
-}
-
-/*
 struct KeyValuePair {
     int key;
-    const char* value; // 修改这里：从 std::string 改为 const char*
+    std::string value;
 };
 
 KeyValuePair newKeyValuePairs[] = {
@@ -873,7 +810,7 @@ KeyValuePair newKeyValuePairs[] = {
     { 941, "请选择...." },
     { 942, "男" },
     { 943, "女" },
-    { 1163, "DWANG" },
+    { 1163, "北斗" },
     { 1369, "您所选择的游戏区人数较多，建议您选择其他区创建角色或进行游戏" },
     { 1370, "您所选择的游戏区已经人满，请您选择其他区创建角色或进行游戏" },
     { 1392, "广告窗被关掉。" },
@@ -2004,11 +1941,169 @@ KeyValuePair newKeyValuePairs[] = {
     { 5617, "和 \r" },
     { 5639, " 金币" },
 };
-*/
-void AttachStringPoolMod() {
-    // 遍历数组并替换字符串
-    //for (const auto& pair : newKeyValuePairs) {
-    //    // pair.value 无论是 const char* 还是 std::string，都可以直接传入
-    //    REPLACE_STRING(pair.key, pair.value);
-    //}
+
+// 1. 定义函数原型和原始函数指针
+typedef ZXString<char>*(__fastcall* _StringPool__GetString_t)(void* pThis, void* edx, ZXString<char>* result, unsigned int nIdx, char formal);
+static auto _StringPool__GetString = reinterpret_cast<_StringPool__GetString_t>(0x0079E993);
+
+// 2. 将代理函数（Detour）独立出来，避免使用 Lambda 取地址引发的隐患
+static ZXString<char>* __fastcall Hooked_StringPool__GetString(void* pThis, void* edx, ZXString<char>* result, unsigned int nIdx, char formal) {
+    // 调用原函数
+    auto ret = _StringPool__GetString(pThis, edx, result, nIdx, formal);
+
+    // 你的业务逻辑
+    if (nIdx == 1163) {
+        *ret = "BeiDou";
+    }
+
+    for (const auto& pair : newKeyValuePairs) {
+        if (nIdx == pair.key) {
+            *ret = pair.value.c_str();
+            break;
+        }
+    }
+    return ret;
 }
+
+DWORD getItemType2Addr = 0x005CFAC2;
+__declspec(naked) void getItemType1() {
+    __asm {
+		jmp getItemType2Addr
+    }
+}
+
+
+DWORD getItemType2ErrRtnAddr = 0x005CFAA8;
+DWORD getItemType2RtnAddr = 0x005CFADD;
+__declspec(naked) void getItemType2() {
+    __asm {
+		dec eax
+		jz label_eqp
+		dec eax
+		jz label_use
+		dec eax
+		jz label_ins
+		dec eax
+		jz label_etc
+		dec eax
+		jz label_cash
+		jmp getItemType2ErrRtnAddr
+	label_cash:
+		push 0x159C
+		jmp getItemType2RtnAddr
+	label_etc:
+		push 0x6DD
+		jmp getItemType2RtnAddr
+	label_ins:
+		push 0x0B
+		jmp getItemType2RtnAddr
+	label_use:
+		push 0x6E3
+		jmp getItemType2RtnAddr
+	label_eqp:
+		push 0x6D9
+		jmp getItemType2RtnAddr
+    }
+}
+
+
+void FixItemType() {
+
+    PatchJmp2(0x005CFA99, &getItemType1, 15);
+    PatchJmp2(getItemType2Addr, &getItemType2, 27);
+}
+
+/* 修复技能描述中文换行乱码的问题 */
+int charLen = 55;
+void calcCharLen(const char* word) {
+    // std::cout << "文字 " << word << std::endl;
+    const std::string str = std::string(word);
+    auto firstByte = static_cast<unsigned char>(str[0]);
+    // auto secondByte = static_cast<unsigned char>(str[55]);
+
+    if (str.length() < 55) {
+        charLen = 55;
+        return;
+    }
+    for (int i = 0; i < 60; i++) {
+        firstByte = static_cast<unsigned char>(str[i]);
+        if (firstByte >= 0x81 && firstByte <= 0xFE) {
+            i++; // 是中文字符跳过双字节
+            continue;
+        }
+        if (i >= 55) {
+            charLen = i;
+            break;
+        }
+    }
+}
+
+constexpr DWORD skillToolTipNewRtn = 0x008F3844;
+__declspec(naked) void skillToolTipNew() {
+    __asm {
+		mov eax, [ebp + 0Ch]
+		push eax
+		call calcCharLen
+		pop eax
+		mov eax, charLen
+		mov[ebp - 1Ch], eax
+		lea eax, [ebp - 30h]
+		jmp skillToolTipNewRtn
+    }
+}
+
+
+
+void AttachChinessMod() {
+
+    if (!CONSTANTS_SWITCH_CHINESE) {
+        return;
+    }
+
+
+    // 聊天栏选项
+    PatchStr(0x00AF2B28, "对联盟     ");
+
+    // 有效期字体大小
+    Patch1(0x008E55ED + 1, 0x0B);
+
+    // 属性位置字体大小
+    Patch1(0x008E557A + 1, 0x0B);
+    Patch1(0x008E565E + 1, 0x0B);
+
+    // 玩家名片 职业字体大小和位置
+    Patch1(0x0090142E + 1, 0x5E); // 60->5E 位置上移
+    Patch1(0x00901400 + 1, 1);    // 字体type改为1 对应12号大小
+
+
+    ATTACH_HOOK(_StringPool__GetString, Hooked_StringPool__GetString);
+
+    // item修复
+    FixItemType();
+
+
+    // 以下优化字符串显示
+    PatchNop(0x008E4252, 0x008E4252+2);                // 修复道具介绍中，中文换行的问题
+    PatchJmp2(0x008F383E, &skillToolTipNew, 6);        // 修复技能描述中文换行乱码的问题
+
+
+
+    // 报错信息中文
+    //Memory::WriteByte(0x0068DE1F + 1, 0x86);
+    //Memory::WriteByte(0x0068DFBD + 1, 0x86);
+    //Memory::WriteByte(0x0068E0E7 + 1, 0x86);
+    //Memory::WriteByte(0x0068E534 + 1, 0x86);
+    //Memory::WriteByte(0x0068E65D + 1, 0x86);
+    //Memory::WriteByte(0x0068E709 + 1, 0x86);
+
+
+
+    // 装备显示职业间隔
+    Patch1(0x008EC4A7 + 1, 0x23);            // 装备属性页面的职业需求偏移战士
+    Patch1(0x008EC53C + 1, 0x4D);            // 魔法师
+    Patch1(0x008EC5D1 + 1, 0x7A);            // 弓箭手
+    Patch1(0x008EC660 + 1, 0xA9);            // 飞侠
+    Patch1(0x008EC6CF + 1, 0xC8);            // 海盗
+}
+
+

@@ -95,6 +95,8 @@ void AttachIconIconMod();
 void AttachTempStatMod();
 void AttachQuickSlotsMod(); // <-- add this line
 
+void AttachChinessMod(); 
+
 
 inline void AttachClientHooks() {
     AttachClientBypass();
@@ -109,6 +111,7 @@ inline void AttachClientHooks() {
     AttachIconIconMod();
     AttachTempStatMod();
     AttachQuickSlotsMod(); // <-- add this line
+    AttachChinessMod();    // <-- add this line
 }
 
 
