@@ -2,6 +2,13 @@
 #include "debug.h"
 #include <type_traits>
 
+/*
+* 自动化函数挂钩宏
+reinterpret_cast<void>(&TARGET)：自动把你的游戏原版函数指针强转为 void，省去了你每次手动写强转的麻烦。
+CastHook(&DETOUR)：将你的 Hook 目标函数转为通用的 void*（下面会详细讲 CastHook 的特殊之处）。
+#DETOUR（仅在 _DEBUG 下）：C++ 预处理器的特性，能把你的函数名直接转换成字符串。
+如果 Hook 失败，它会弹出一行极其人性化的报错：“Failed to attach detour function 'CWvsApp__ctor_hook' at target address: 0x009CA8A0”。
+*/
 #ifdef _DEBUG
 #define ATTACH_HOOK(TARGET, DETOUR) \
     AttachHook(reinterpret_cast<void**>(&TARGET), CastHook(&DETOUR)) ? true : (ErrorMessage("Failed to attach detour function \"%s\" at target address : 0x%08X.", #DETOUR, TARGET), false)
@@ -10,6 +17,37 @@
     AttachHook(reinterpret_cast<void**>(&TARGET), CastHook(&DETOUR))
 #endif
 
+
+/*
+MEMBER_AT(T, OFFSET, NAME) —— 极其硬核的“内存偏移隐式映射”宏
+这是整个头文件里技术含量最高的宏。它是为了解决 C++ 逆向工程中一个极其头疼的问题：
+“我知道游戏某个类在某个偏移量（Offset）有个变量，但我没办法重构整个类的结构体，该怎么读写它？”
+它利用了微软 VC++ 编译器的独有特性 __declspec(property)，在类的内部虚拟出一个成员变量。
+
+__declspec(property(get = get_##NAME, put = set_##NAME)) T NAME;
+声明一个名为 NAME、类型为 T 的虚拟属性。当你代码里写 obj.NAME 时，编译器会自动去调用 get_NAME()；写 obj.NAME = val 时，自动调用 set_NAME()。
+
+get_##NAME() const 与 get_##NAME()
+利用 reinterpret_cast<uintptr_t>(this) + OFFSET，直接拿当前对象的首地址（this 指针），硬生生加上你指定的字节偏移量，然后把那块内存强转成类型 T 的引用返回。
+
+set_##NAME(...)
+同理，找到偏移后的内存，直接往里写入新值。
+
+
+实际应用场景：
+假设原版游戏里的类 CWvsApp 大小有几个 KB，你想修改偏移量为 0x203C 处的 m_bWindowActive（窗口是否激活，布尔值）。
+你不需要在 C++ 里写一堆占位数组，直接在类定义里塞入这个宏：
+
+class CWvsApp {
+public:
+    MEMBER_AT(bool, 0x203C, m_bWindowActive);
+};
+在后续代码中，你可以像对待原生成员一样极其自然地操作它：
+
+pThis->m_bWindowActive = true; // 编译器在底层会自动将其转化为：*(bool*)((char*)pThis + 0x203C) = true;
+
+
+*/
 #define MEMBER_AT(T, OFFSET, NAME) \
     __declspec(property(get = get_##NAME, put = set_##NAME)) T NAME; \
     __forceinline const T& get_##NAME() const { \
@@ -62,7 +100,7 @@ inline void AttachClientHooks() {
     AttachClientBypass();
     AttachClientInlink();
     AttachStringPoolMod();
-    AttachResManMod();
+    AttachResManMod();       // 加载WZ
     AttachAvatarDataMod();
     AttachItemEffectMod();
     AttachResolutionMod();

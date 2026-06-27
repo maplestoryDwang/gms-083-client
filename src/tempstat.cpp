@@ -8,7 +8,11 @@
 
 static IWzPropertyPtr g_pPropMinute;
 static IWzPropertyPtr g_pPropSecond;
+static CTemporaryStatView g_tsvCooltime;
 
+/*
+画时间
+*/
 void DrawDuration(IWzCanvasPtr pCanvas, int nSeconds, int nX = 0, int nY = 0) {
     if (!g_pPropMinute) {
         g_pPropMinute = get_rm()->GetObjectA(L"UI/UIWindowEx.img/SkillCooldownNumber/0").GetUnknown();
@@ -103,6 +107,6 @@ void __declspec(naked) CUIStatusBar__DrawSkillCooltime_hook() {
 
 
 void AttachTempStatMod() {
-    ATTACH_HOOK(TEMPORARY_STAT__UpdateShadowIndex, TEMPORARY_STAT__UpdateShadowIndex_hook);
-    PatchJmp(0x008E085B, &CUIStatusBar__DrawSkillCooltime_hook); // CUIStatusBar::DrawSkillCooltime
+    ATTACH_HOOK(TEMPORARY_STAT__UpdateShadowIndex, TEMPORARY_STAT__UpdateShadowIndex_hook);           // 右上角状态显示数字
+    PatchJmp(0x008E085B, &CUIStatusBar__DrawSkillCooltime_hook);  // CUIStatusBar::DrawSkillCooltime  // 只是在CD显示数字
 }

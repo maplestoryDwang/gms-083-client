@@ -67,7 +67,7 @@ void CWvsApp::InitializeResMan_hook() {
     // technically not really a hook anymore since not calling the original function when going with IMG format
     DEBUG_MESSAGE("CWvsApp::InitializeResMan");
 
-    // can change/move this variable to whatever you wish
+    // can change/move this variable to whatever you wish 想用哪种方式加载
     bool bUseFileSystem = true;
 
     // basic data mounting
