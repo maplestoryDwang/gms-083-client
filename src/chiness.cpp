@@ -2,6 +2,7 @@
 #include "hook.h"
 #include "ztl/ztl.h"
 #include "constants.h"
+#pragma comment(lib, "imm32.lib")
 
 
 struct KeyValuePair {
@@ -2053,13 +2054,74 @@ __declspec(naked) void skillToolTipNew() {
 }
 
 
+void DisableIme() {
+    HWND hwnd = GetForegroundWindow(); // 获取当前前台窗口的句柄
+    if (hwnd) {
+        // 获取输入法上下文
+        HIMC hImc = ImmGetContext(hwnd);
+        if (hImc) {
+            // 解除输入法上下文的关联
+            ImmAssociateContext(hwnd, NULL);
+            ImmReleaseContext(hwnd, hImc);
+        }
+    }
+}
+// 控制是否开启
+BYTE enabled = 1;
+DWORD funcEnableImeAddr = 0x009E85F3;
+
+
+DWORD destroyWindowRtnAddr = 0x004DFEAD;
+DWORD destroyWindowFuncAddr = 0x0041FE69;  //_com_ptr_t<_com_IIID<IWzVector2D,&__s_GUID const _GUID_f28bd1ed_3deb_4f92_9eec_10ef5a1c3fb4>>::operator=
+__declspec(naked) void destroyWindow() {
+    __asm {
+		call destroyWindowFuncAddr
+		or dword ptr[esi + 14h], 0FFFFFFFFh
+
+		cmp enabled, 0
+		jz label_return
+
+		call DisableIme
+		mov enabled, 0
+
+		label_return :
+		jmp destroyWindowRtnAddr
+    }
+}
+
+DWORD newSwitchMLImeRtnAddr = 0x004D32EE;
+__declspec(naked) void newSwitchMLIme() {
+    __asm {
+		push 1
+		call funcEnableImeAddr
+		mov enabled, 1
+		jmp  newSwitchMLImeRtnAddr
+    }
+}
+
+DWORD newSwitchImeRtnAddr = 0x004CA08F;
+__declspec(naked) void newSwitchIme() {
+    __asm {
+		cmp[esi + 0x80], 1 // 判断是否密码框
+		jz label_disable
+		push 1
+		call funcEnableImeAddr
+		mov enabled, 1
+		jmp newSwitchImeRtnAddr
+
+	label_disable :
+		call DisableIme
+		jmp newSwitchImeRtnAddr
+    }
+}
+
+
 
 void AttachChinessMod() {
 
     if (!CONSTANTS_SWITCH_CHINESE) {
         return;
     }
-
 
     // 聊天栏选项
     PatchStr(0x00AF2B28, "对联盟     ");
@@ -2074,19 +2136,23 @@ void AttachChinessMod() {
     // 玩家名片 职业字体大小和位置
     Patch1(0x0090142E + 1, 0x5E); // 60->5E 位置上移
     Patch1(0x00901400 + 1, 1);    // 字体type改为1 对应12号大小
+   
+    // 装备显示职业间隔
+    Patch1(0x008EC4A7 + 1, 0x23); // 装备属性页面的职业需求偏移战士
+    Patch1(0x008EC53C + 1, 0x4D); // 魔法师
+    Patch1(0x008EC5D1 + 1, 0x7A); // 弓箭手
+    Patch1(0x008EC660 + 1, 0xA9); // 飞侠
+    Patch1(0x008EC6CF + 1, 0xC8); // 海盗
 
-
+    // stringpool 中文
     ATTACH_HOOK(_StringPool__GetString, Hooked_StringPool__GetString);
 
     // item修复
     FixItemType();
 
-
     // 以下优化字符串显示
     PatchNop(0x008E4252, 0x008E4252+2);                // 修复道具介绍中，中文换行的问题
     PatchJmp2(0x008F383E, &skillToolTipNew, 6);        // 修复技能描述中文换行乱码的问题
-
-
 
     // 报错信息中文
     //Memory::WriteByte(0x0068DE1F + 1, 0x86);
@@ -2097,13 +2163,45 @@ void AttachChinessMod() {
     //Memory::WriteByte(0x0068E709 + 1, 0x86);
 
 
+    // CUIStatusBar::OnKey
+    PatchNop(0x008D54A6, 0x008D54A6 + 9);
+    //Memory::FillBytes(0x008D54A6, 0x90, 9); // Key ?
 
-    // 装备显示职业间隔
-    Patch1(0x008EC4A7 + 1, 0x23);            // 装备属性页面的职业需求偏移战士
-    Patch1(0x008EC53C + 1, 0x4D);            // 魔法师
-    Patch1(0x008EC5D1 + 1, 0x7A);            // 弓箭手
-    Patch1(0x008EC660 + 1, 0xA9);            // 飞侠
-    Patch1(0x008EC6CF + 1, 0xC8);            // 海盗
+    // CUser::OnChat
+    PatchNop(0x00937225, 0x00937225 + 9);
+    //Memory::FillBytes(0x00937225, 0x90, 9); // Chat
+
+    // CField::OnGroupMessage
+    PatchNop(0x00531EE8, 0x00531EE8 + 9);
+    //Memory::FillBytes(0x00531EE8, 0x90, 9); // Group Message
+
+    // 剪贴板支持中文
+    PatchNop(0x004CAE7D, 0x004CAE7D + 2);
+    //Memory::FillBytes(0x004CAE7D, 0x90, 2);
+    Patch1(0x004CAE8F, 0xEB);
+    //Memory::WriteByte(0x004CAE8F, 0xEB);
+
+    // 角色名中文检测
+    PatchNop(0x007A015D, 0x007A015D + 2);
+    //Memory::FillBytes(0x007A015D, 0x90, 2);
+
+
+
+    // 单行输入框启用IME
+    //Memory::CodeCave(newSwitchIme, 0x004CA089, 6);
+    PatchJmp2(0x004CA089, &newSwitchIme, 6);          // 单行禁用，输入完禁用不容易卡门
+
+    //Memory::CodeCave(destroyWindow, 0x004DFEA4, 9); // 销毁窗口时固定禁用IME
+    PatchJmp2(0x004DFEA4, &destroyWindow, 9); 
+
+    //Memory::CodeCave(newSwitchMLIme, 0x004D32D9, 7); // 多行输入
+    PatchJmp2(0x004D32D9, &newSwitchMLIme, 7); 
+
+    // 测试
+    // 登录界面 密码禁止调用IME————账号框无法识别，密码框已特殊处理禁用IME了
+    // 平常状态下 输入法可以输入中文，非输入法不卡门————已测试
+    // 商城礼物 日期/标题/内容————生日禁用IME / 标题内容均可调用输入法
+    // 老虎喇叭 多行输入框————可正常输入
 }
 
 

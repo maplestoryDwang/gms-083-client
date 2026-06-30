@@ -427,22 +427,27 @@ void __cdecl ClearQuickSlotFrame(void* pThis, void* pFrameCanvas) {
     int w = Layer_GetWidth(pLayer);
     int h = Layer_GetHeight(pLayer);
     void** vtbl = *reinterpret_cast<void***>(pFrameCanvas);
-    reinterpret_cast<Canvas_Clear_t>(vtbl[0x8C / 4])(pFrameCanvas, 0, 0, w, h, 0xFFFFFF); // 虚函数
+    reinterpret_cast<Canvas_Clear_t>(vtbl[0x8C / 4])(pFrameCanvas, 0, 0, w, h, 0xFFFFFF); // 虚函数调用  偏移量8C 8C/4表示第几个虚函数
 }
 
 DWORD QuickSlotArt_Hook = 0x008DDE74;
 DWORD QuickSlotArt_Retn = 0x008DDE79;
-
+/*
+* 
+* 只是在获取stringpool的地方强行hook了一段代码，和这里执行什么无关
+___:008DDE74 68 C8 09 00 00                    push    9C8h            ; a3
+___:008DDE79 50                                push    eax             ; a2
+*/
 __declspec(naked) void QuickSlotArt_cave() {
     _asm {
 		pushad
 		call RefreshQuickSlotArt
-		mov  eax, [ebp - 0x18]              // 1. 从局部变量中取出 pThis 的指针，暂存到 eax
+		mov  eax, [ebp - 0x18]              //   &pvarg                                         来自  008DDB7C 8D 45 E8                          lea     eax, [ebp+var_18] ; Load Effective Address
 		push eax                           // 压栈！(此时 eax 存的是 pThis)
-		mov  eax, [ebp - 0x3C]               // 60
+		mov  eax, [ebp - 0x3C]               // 60  this                                        来自：008DDB50 89 75 C4                          mov     [ebp+var_3C], esi
 		push eax
 		call ClearQuickSlotFrame
-		add  esp, 8                         //堆栈平衡
+		add  esp, 8                         //堆栈平衡  cdecl 由调用者处理堆栈
 		popad
 		push 0x9C8 // 补回游戏原本在 0x008DDE74 左右被你擦除掉的原始指令
 		jmp  QuickSlotArt_Retn
@@ -488,7 +493,7 @@ __declspec(naked) void KeyConfig_Destroy_cave() {
 // 调用了CUIStatusBar::ReDrawQuickslot(TSingleton<CUIStatusBar>::ms_pInstance);
 DWORD sub_832834_Retn = 0x00832884; // 正常返回下一条指令
 
-__declspec(naked) void sub_832834_cave() {
+__declspec(naked) void CUIKeyConfig_Destructor_cave() {
     _asm {
         mov  eax, dword ptr ds:[0x00BED658] // 补回 mov eax
         lea  ecx, [eax + 0x84] // 升级为完整 32 位 lea 偏移 (132)
@@ -699,7 +704,7 @@ void _declspec(naked) StatusBarClickRange() {
 
     旧的  0x04 + 0x20 = 0x24 是m_aQuickslotKeyMapped_Old的起始地址
     起始地址是 0x04 + 新数组大小 0x78 = 0x7C
-
+    
 
 
     00000000 CFuncKeyMappedMan struc ; (sizeof=0x3CC, align=0x4, copyof_6754)
@@ -712,7 +717,7 @@ void _declspec(naked) StatusBarClickRange() {
     000003A0 m_aQuickslotKeyMapped_Old dd 8 dup(?)
     000003C0 m_nPetConsumeItemID dd ?
     000003C4 m_nPetConsumeMPItemID dd ?
-    000003C8 m_nNormalAttackCode dd ?
+    000003C8 m_nNormalAttackCode dd ?   // 083没有
     000003CC CFuncKeyMappedMan ends
     000003CC
 
@@ -738,20 +743,46 @@ void AttachQuickSlotsMod() {
 
 
     // hook dword_BDAFAC 2Ah, 52h, 47h, 49h, 1Dh, 53h, 4Fh, 51h
-    // 设置旧的键盘
+    // 替换dword_BDAFAC里面的快捷键默认值成我们自己的键盘
+    /*
+    ___:00BDAFAC 2A 00 00 00 52 00 00 00 dword_BDAFAC    dd 2Ah, 52h, 47h, 49h, 1Dh, 53h, 4Fh, 51h
+    ___:00BDAFAC 47 00 00 00 49 00 00 00                                         ; DATA XREF: CQuickslotKeyMappedMan::CQuickslotKeyMappedMan(void)+12↑o
+    ___:00BDAFAC 1D 00 00 00 53 00 00 00…           
+    */
+
+    /*
+        ___:0072B7CC 6A 20                                   push    20h ; ' '       ; size_t
+        ___:0072B7CE BF AC AF BD 00                          mov     edi, offset dword_BDAFAC
+        ___:0072B7D3 23 CA                                   and     ecx, edx        ; Logical AND
+        ___:0072B7D5 57                                      push    edi             ; void *
+        ___:0072B7D6 89 0D 58 D6 BE 00                       mov     TSingleton_CQuickslotKeyMappedMan___ms_pInstance, ecx
+        ___:0072B7DC 50                                      push    eax             ; void *
+        ___:0072B7DD C7 06 18 DA AF 00                       mov     dword ptr [esi], offset off_AFDA18
+        ___:0072B7E3 E8 18 54 33 00                          call    _memcpy     
+    */
     // CQuickslotKeyMappedMan::CQuickslotKeyMappedMan
+    // CWvsApp setup调用TSingleton<CQuickslotKeyMappedMan>::CreateInstance() 然后去初始化
     Patch4(0x0072B7CE + 1, (DWORD)&Array_aDefaultQKM_0);
+
     // CQuickslotKeyMappedMan::DefaultQuickslotKeyMap(CQuickslotKeyMappedMan *this)
+    /*
+        ___:0072B8E6 6A 20                                   push    20h ; ' '       ; size_t
+        ___:0072B8E8 83 C1 04                                add     ecx, 4          ; Add
+        ___:0072B8EB 68 AC AF BD 00                          push    offset dword_BDAFAC ; void *
+        ___:0072B8F0 51                                      push    ecx             ; void *
+        ___:0072B8F1 E8 0A 53 33 00                          call    _memcpy         ; Call Procedure
+    */
     Patch4(0x0072B8EB + 1, (DWORD)&Array_aDefaultQKM_0);
 
 
     // 8 -》30就是0x1E
+    // ----------------------------------------------------------------------
     // CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
+    // ----------------------------------------------------------------------
+    // 
     Patch1(0x008DD916, 0x20);   //1E - 20
     Patch1(0x008DD8AD, 0x20);   //1E - 20
 
-
-    // CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo
     //  :008DD8FD 8D 9E 20 0D 00 00                 lea     ebx, [esi+0D20h] ; Load Effective Address
     Patch1(0x008DD8FD, 0xBB);                       // 0xBB 是 mov ebx, <32位立即数>
     Patch4(0x008DD8FD + 1, (DWORD)&Array_FunKey); // 填入新数组的内存地址
@@ -763,7 +794,7 @@ void AttachQuickSlotsMod() {
     Patch1(0x008DD898 + 5, 0x90);
 
 
-        // ----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // CUIStatusBar::HitTest
     // ----------------------------------------------------------------------
     //
@@ -786,6 +817,16 @@ void AttachQuickSlotsMod() {
     // :008DE75E 83 7D B8 24                       cmp     [ebp+var_48], 24h ; '$' ; Compare Two Operands
     //Patch1(0x008DE75E + 3, 0x7C); //               124字节 和cooldown_Array相同 为什么又写一次？ 需要修改
     PatchJmp(0x008DE75E, &DrawLimit_cave);
+
+
+     // ----------------------------------------------------------------------
+    // CUIStatusBar::CQuickSlot::Draw(void)
+    // ----------------------------------------------------------------------
+    //
+    // ___:008DDE74 68 C8 09 00 00                    push    9C8h            ; a3
+    PatchJmp(0x008DDE74, &QuickSlotArt_cave);
+
+
 
     // 抹平残余的 5 字节
     Patch1(0x008DE75E + 5, 0x90);
@@ -810,6 +851,7 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
     // 原版逻辑：eax 是快捷键的索引（0~7）。游戏通过 [ebx + eax*4 + 0xD1C]，先找到对象基址 ebx，加上结构体内部偏移 0xD1C，再乘以索引，算出了旧快捷键的内存地址。
     // 补丁逻辑：作者把机器码强行改成了 34 85。在 x86 汇编中，8D 34 85 刚好代表 lea esi, [eax * 4 + 立即数]。这样就直接扔掉了原本的结构体基址 ebx 和内部偏移，
     // 让 esi 直接指向了你新开辟的全局数组 Array_Expanded 对应的索引位置！
+    // eax应该 = 1
     Patch1(0x008D7F1E + 1, 0x34);
     Patch1(0x008D7F1E + 2, 0x85);
     Patch4(0x008D7F1E + 3, (DWORD)&Array_FunKey);  
@@ -817,6 +859,7 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
     // ----------------------------------------------------------------------
     //  CUIStatusBar::CQuickSlot::GetPosByIndex
+    //  偏向与业务相关的，技能index和消耗品index
     // ----------------------------------------------------------------------
     // 
     // 008DE94D 8B 88 B0 2D BE 00                 mov     ecx, dword_BE2DB0[eax]
@@ -829,6 +872,7 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
     // ----------------------------------------------------------------------
     //   CUIStatusBar::GetShortCutIndexByPos(int a1, int a2)
+    //   画图时候的index，这个很重要，关联的都要改
     // ----------------------------------------------------------------------
     // 
     // 设置esi进行比较
@@ -941,6 +985,9 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
 
     // int __thiscall sub_832834(_DWORD *this)
+    // ----------------------------------------------------------------------
+    // CUIKeyConfig::~CUIKeyConfig
+    // ----------------------------------------------------------------------
     /*
         ___:0083287A A1 58 D6 BE 00                    mov     eax, dword_BED658
         ___:0083287F 8D 48 24                          lea     ecx, [eax+24h]  ; Load Effective Address
@@ -950,7 +997,8 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
     //Patch1(0x00832882 + 1, 0x78);
 
     // 写入 Hook
-    PatchJmp(0x0083287A, &sub_832834_cave);
+    // 把旧的写回去
+    PatchJmp(0x0083287A, &CUIKeyConfig_Destructor_cave);
     PatchNop(0x0083287A + 5, 0x0083287A + 10); // NOP 抹平余下的 5 字节
 
 
@@ -1029,8 +1077,9 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
 
 
-
-    // __thiscall sub_8369D0
+    // ----------------------------------------------------------------------
+    // __thiscall sub_8369D0  ----- 取消快捷键。
+    // ----------------------------------------------------------------------
     // 不知道是哪里反正也是一个需要改的地方 关联的是  TSingleton_CQuickslotKeyMappedMan_::ms_pInstance
     /*
     ___:00836A1E 6A 20                             push    20h ; ' '       ; size_t
@@ -1050,14 +1099,10 @@ ___    :008DDF9C 05 20 0D 00 00                    add     eax, 0D20h      ; Add
 
     g_pQuickSlotS_encoded = EncodeStringAlloc("UI/StatusBar.img/base/quickSlotS");
     g_pQuickSlotM_encoded = EncodeStringAlloc("UI/StatusBar.img/base/quickSlotM");
-    g_pQuickSlot_stock = g_ppStringPool[SP_QUICKSLOT_INDEX];
+    g_pQuickSlot_stock = g_ppStringPool[SP_QUICKSLOT_INDEX];                       //原来UI/StatusBar.img/base/quickSlot的值
 
-    // ----------------------------------------------------------------------
-    // CUIStatusBar::CQuickSlot::Draw(char *this)
-    // ----------------------------------------------------------------------
-    // 
-    // ___:008DDE74 68 C8 09 00 00                    push    9C8h            ; a3
-    PatchJmp(0x008DDE74, &QuickSlotArt_cave);
+
+
 
     // ----------------------------------------------------------------------
     // CUIStatusBar::CQuickSlot::CompareValidateFuncKeyMappedInfo(void)

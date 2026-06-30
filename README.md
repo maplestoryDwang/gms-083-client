@@ -28,5 +28,6 @@ port=8484
 https://moguwuyu.com/d/364-quickslot-dynamic
 2. add stringpool 来自beidou
 3. 新增img加载wz，支持加载北斗的汉化img，其他都是用源端的 thank Conggg.
+4. 整合中文相关适配chiness.cpp，来自beidou
 
 
